@@ -20,7 +20,9 @@ export async function withRevitConnection<T>(
   });
   await previousMutex;
 
-  const revitClient = new RevitClientConnection("localhost", 8080);
+  // Use the IPv4 loopback address explicitly so it matches the plugin's
+  // IPAddress.Loopback bind (avoids "localhost" resolving to IPv6 ::1).
+  const revitClient = new RevitClientConnection("127.0.0.1", 8080);
 
   try {
     // 连接到Revit客户端

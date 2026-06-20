@@ -102,7 +102,9 @@ namespace revit_mcp_plugin.Core
             try
             {
                 _isRunning = true;
-                _listener = new TcpListener(IPAddress.Any, _port);
+                // Bind to loopback only (127.0.0.1) so the socket is reachable
+                // exclusively from this machine, never from other hosts on the LAN.
+                _listener = new TcpListener(IPAddress.Loopback, _port);
                 _listener.Start();
 
                 _listenerThread = new Thread(ListenForClients)
