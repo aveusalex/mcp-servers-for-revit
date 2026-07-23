@@ -1,6 +1,7 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitMCPCommandSet.Models.DataExtraction;
+using RevitMCPCommandSet.Utils;
 using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services.DataExtraction
@@ -30,7 +31,8 @@ namespace RevitMCPCommandSet.Services.DataExtraction
         {
             try
             {
-                var doc = app.ActiveUIDocument.Document;
+                // doc-agnostic: operate on the broker-selected document (falls back to active).
+                var doc = RevitDocumentContext.ResolveDocument(app);
 
                 // Get project name
                 string projectName = doc.Title;
