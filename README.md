@@ -7,25 +7,86 @@
 mcp-servers-for-revit enables AI clients like Claude, Cline, and other MCP-compatible tools to read, create, modify, and delete elements in Revit projects. It consists of three components: a TypeScript MCP server that exposes tools to AI, a C# Revit add-in that bridges commands into Revit, and a command set that implements the actual Revit API operations.
 
 > [!NOTE]
-> This is a fork of the original [revit-mcp](https://github.com/mcp-servers-for-revit/revit-mcp) project with additional tools and functionality improvements.
+> This is a **fork** of [mcp-servers-for-revit](https://github.com/mcp-servers-for-revit/mcp-servers-for-revit)
+> that replaces the 1:1, click-to-activate integration with a **multi-document,
+> auto-connecting broker** architecture. It lets one Claude chat see and drive
+> every open Revit project, and lets several chats work at once — with no manual
+> activation. With a single project open, behaviour and tool schemas are
+> unchanged. See [DIVERGENCE.md](./DIVERGENCE.md) for the full delta and for
+> what still needs validation inside Revit.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Client["MCP Client<br/>(Claude, Cline, etc.)"]
-    Server["MCP Server<br/><code>server/</code>"]
-    Plugin["Revit Plugin<br/><code>plugin/</code>"]
-    CommandSet["Command Set<br/><code>commandset/</code>"]
-    Revit["Revit API"]
+    ClientA["MCP Client A<br/>(Claude chat)"]
+    ClientB["MCP Client B<br/>(Claude chat)"]
+    ServerA["MCP Server<br/><code>server/</code>"]
+    ServerB["MCP Server<br/><code>server/</code>"]
+    Broker["Broker daemon<br/><code>broker/</code><br/>ws://127.0.0.1:8090"]
+    Plugin1["Revit 2026 plugin<br/>docs: Torre-A, Torre-B"]
+    Plugin2["Revit 2024 plugin<br/>docs: Retrofit"]
 
-    Client <-->|stdio| Server
-    Server <-->|WebSocket| Plugin
-    Plugin -->|loads| CommandSet
-    CommandSet -->|executes| Revit
+    ClientA <-->|stdio| ServerA
+    ClientB <-->|stdio| ServerB
+    ServerA <-->|WebSocket + token| Broker
+    ServerB <-->|WebSocket + token| Broker
+    Plugin1 -->|connects OUT| Broker
+    Plugin2 -->|connects OUT| Broker
 ```
 
-The **MCP Server** (TypeScript) translates tool calls from AI clients into WebSocket messages. The **Revit Plugin** (C#) runs inside Revit, listens for those messages, and dispatches them to the **Command Set** (C#), which executes the actual Revit API operations and returns results back up the chain.
+The central change: **the plugin is now a client that dials out**, and the
+**broker** is the only process that listens on a fixed port. This removes port
+scanning, bind races, and discovery files, and lets multiple Revit processes and
+multiple MCP clients coexist.
+
+- **Broker** (`broker/`, Node): the single loopback listener. It authenticates
+  plugins and MCP clients with a shared token, tracks which document belongs to
+  which Revit session, and routes each command envelope
+  `{correlationId, docId, command, params}` to the session that owns the target
+  document — keyed by the **document**, not the port.
+- **MCP Server** (`server/`, TypeScript): one per Claude chat. Resolves the
+  target document per call (explicit `document` argument → fixed target →
+  the single open document) and forwards commands to the broker. Adds the
+  `list_open_documents` and `set_target_document` tools; every existing tool
+  gains an optional `document` argument.
+- **Revit Plugin** (`plugin/`, C#): connects to the broker automatically on
+  startup (no click), registers every open document by its stable
+  `ProjectInformation.UniqueId`, heartbeats every 5s, and dispatches commands to
+  the resolved document. The ribbon button is now a kill switch.
+- **Command Set** (`commandset/`, C#): executes the Revit API operations.
+  Doc-agnostic commands resolve their `Document` from the broker-selected target.
+
+> Commands to different documents are serialized onto Revit's single UI thread
+> (via `ExternalEvent`), so they interleave in one queue rather than running in
+> true parallel.
+
+### Command scope (`command.json`)
+
+Each command declares a `scope`:
+
+- **`doc-agnostic`** — runs against any open document (e.g. `create_level`,
+  `create_grid`, `get_material_quantities`, `analyze_model_statistics`,
+  `export_room_data`, `get_available_family_types`).
+- **`ui-bound`** — requires the target document to be the **active** window
+  (e.g. `get_current_view_info`, `get_selected_elements`, `create_dimensions`,
+  `tag_walls`, `tag_rooms`, `operate_element`, `color_splash`). Targeting a
+  non-active document returns a typed `REQUIRES_ACTIVE_DOCUMENT` error.
+
+### Running the broker
+
+The MCP server starts the broker automatically (spawned detached, idempotent —
+it exits quietly if one is already running). To run it by hand:
+
+```bash
+cd broker && npm install && npm start
+```
+
+Security: the broker binds **only** to `127.0.0.1`, requires the shared token
+(`%APPDATA%\revit-mcp\broker-token`) from both plugin and MCP clients, keeps
+non-active documents **read-only** unless `allowBackgroundWrites` is enabled,
+never synchronizes workshared models, and writes a per-command JSONL audit log
+under `%APPDATA%\revit-mcp\audit\`.
 
 ## Requirements
 

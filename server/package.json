@@ -14,7 +14,7 @@
         "clean": "rimraf build",
         "prebuild": "npm run clean",
         "build": "tsc",
-        "test": "npm run build && node --test test/",
+        "test": "npm run build && node --test test/*.test.js",
         "prepublishOnly": "npm run build"
     },
     "files": [

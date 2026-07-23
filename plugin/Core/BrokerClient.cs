@@ -247,6 +247,12 @@ namespace revit_mcp_plugin.Core
 
         private (JToken result, JObject error) Dispatch(string docId, string command, JToken paramsToken)
         {
+            // Never let AI push a central-model synchronization. Workshared models
+            // must only ever sync under a human's hand.
+            if (IsBlockedSync(command))
+                return (null, BrokerError("SYNC_BLOCKED",
+                    "Synchronizing with the central model is not allowed through the MCP integration."));
+
             // Resolve the target document by its stable docId.
             Document target = DocumentSessionManager.Instance.ResolveDocument(docId);
             if (target == null)
@@ -361,6 +367,15 @@ namespace revit_mcp_plugin.Core
                 }
             }
             return DefaultUiBound.Contains(command) ? "ui-bound" : "doc-agnostic";
+        }
+
+        private static bool IsBlockedSync(string command)
+        {
+            if (string.IsNullOrEmpty(command)) return false;
+            string c = command.Replace("_", "").ToLowerInvariant();
+            return c.Contains("synchronizewithcentral")
+                || c.Contains("syncwithcentral")
+                || c.Contains("synctocentral");
         }
 
         private static bool IsLikelyWrite(string command)

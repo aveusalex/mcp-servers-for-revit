@@ -35,7 +35,8 @@ export class Broker {
     this.port = opts.port ?? PORT;
     this.token = opts.token ?? loadOrCreateToken();
     this.audit = opts.audit ?? new AuditLog();
-    this.registry = new Registry();
+    this.sweepIntervalMs = opts.sweepIntervalMs ?? HEARTBEAT_INTERVAL_MS;
+    this.registry = new Registry(opts.sessionTtlMs);
 
     /** @type {Set<import("ws").WebSocket>} MCP clients, for lifecycle only. */
     this.mcpClients = new Set();
@@ -58,10 +59,7 @@ export class Broker {
       this._wss = new WebSocketServer({ host: this.host, port: this.port });
       this._wss.on("connection", (ws) => this._onConnection(ws));
       this._wss.on("listening", () => {
-        this._sweepTimer = setInterval(
-          () => this._sweep(),
-          HEARTBEAT_INTERVAL_MS
-        );
+        this._sweepTimer = setInterval(() => this._sweep(), this.sweepIntervalMs);
         this.audit.write({ event: "broker_start", host: this.host, port: this.port });
         resolve();
       });

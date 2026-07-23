@@ -17,7 +17,9 @@ import { SESSION_TTL_MS } from "./config.js";
  * single-process/multi-document, so one session usually owns several docs.
  */
 export class Registry {
-  constructor() {
+  /** @param {number} [ttlMs] heartbeat time-to-live; sessions idle longer are swept. */
+  constructor(ttlMs = SESSION_TTL_MS) {
+    this.ttlMs = ttlMs;
     /** @type {Map<string, { ws: import("ws").WebSocket, meta: object, lastBeat: number }>} */
     this.sessions = new Map();
     /** @type {Map<string, DocumentMeta>} docId -> meta (includes sessionId) */
@@ -103,7 +105,7 @@ export class Registry {
   sweep(now = Date.now()) {
     const dead = [];
     for (const [sessionId, s] of this.sessions) {
-      if (now - s.lastBeat > SESSION_TTL_MS) dead.push(sessionId);
+      if (now - s.lastBeat > this.ttlMs) dead.push(sessionId);
     }
     for (const sessionId of dead) this.removeSession(sessionId);
     return dead;

@@ -15,8 +15,8 @@ class NullAudit extends AuditLog {
 }
 
 /** Boot a broker on an ephemeral port. */
-async function bootBroker() {
-  const broker = new Broker({ port: 0, token: TOKEN, audit: new NullAudit() });
+async function bootBroker(opts = {}) {
+  const broker = new Broker({ port: 0, token: TOKEN, audit: new NullAudit(), ...opts });
   await broker.start();
   const port = broker._wss.address().port;
   return { broker, port };
@@ -151,6 +151,35 @@ test("two MCP clients are routed independently, no crosstalk", async () => {
   assert.equal(ra.result.doc, "P-A");
   assert.equal(rb.correlationId, "b1");
   assert.equal(rb.result.doc, "P-B");
+
+  await broker.stop();
+});
+
+test("sweeps a session that stops heartbeating and drops its documents", async () => {
+  const { broker, port } = await bootBroker({ sessionTtlMs: 150, sweepIntervalMs: 50 });
+
+  const plugin = await connect(port);
+  plugin.send$({ type: "hello", role: "plugin", token: TOKEN, sessionId: "ttl-sess" });
+  await plugin.next();
+  plugin.send$({
+    type: "register",
+    sessionId: "ttl-sess",
+    revitVersion: "2026",
+    documents: [{ docId: "TTL", title: "Doc", isActive: true }],
+  });
+
+  const mcp = await connect(port);
+  mcp.send$({ type: "hello", role: "mcp", token: TOKEN });
+  await mcp.next();
+
+  // Present at first.
+  mcp.send$({ type: "list_documents", correlationId: "d1" });
+  assert.equal((await mcp.next()).documents.length, 1);
+
+  // Stop heartbeating; wait past the TTL, then the doc is gone.
+  await new Promise((r) => setTimeout(r, 300));
+  mcp.send$({ type: "list_documents", correlationId: "d2" });
+  assert.equal((await mcp.next()).documents.length, 0);
 
   await broker.stop();
 });
