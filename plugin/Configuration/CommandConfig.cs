@@ -50,5 +50,16 @@ namespace revit_mcp_plugin.Configuration
         /// </summary>
         [JsonProperty("description")]
         public string Description { get; set; } = "";
+
+        /// <summary>
+        /// <para>命令作用域 - "doc-agnostic" 可作用于任意打开的文档；
+        /// "ui-bound" 需要目标文档处于激活状态。</para>
+        /// <para>Command scope. "doc-agnostic" commands run against any open
+        /// document; "ui-bound" commands require the target document to be the
+        /// active one (view, selection, tags, dimensions). Defaults to
+        /// "doc-agnostic" so an unclassified command is not needlessly blocked.</para>
+        /// </summary>
+        [JsonProperty("scope")]
+        public string Scope { get; set; } = "doc-agnostic";
     }
 }
