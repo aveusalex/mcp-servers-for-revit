@@ -1,64 +1,35 @@
-import { RevitClientConnection } from "./SocketClient.js";
-
-// Mutex to serialize all Revit connections - prevents race conditions
-// when multiple requests are made in parallel
-let connectionMutex: Promise<void> = Promise.resolve();
+import { broker } from "./BrokerConnection.js";
+import { resolveTargetDocId } from "./targeting.js";
 
 /**
- * 连接到Revit客户端并执行操作
- * @param operation 连接成功后要执行的操作函数
- * @returns 操作的结果
+ * The object handed to each tool's operation callback. It keeps the exact
+ * `sendCommand(command, params)` shape the 23 existing tools already call, so
+ * none of them need to change. Under the hood every command is now tagged with
+ * a resolved docId and routed through the broker instead of a raw TCP socket.
+ */
+export interface RevitClient {
+  sendCommand(command: string, params?: any): Promise<any>;
+}
+
+/**
+ * Execute an operation against Revit. Retained name + signature for backward
+ * compatibility: `withRevitConnection(async (client) => client.sendCommand(...))`.
+ *
+ * The target document is resolved once per command from (in order) the explicit
+ * `document` argument, the fixed target, or the single open document — see
+ * targeting.ts. With exactly one project open this is invisible, preserving the
+ * original single-document behaviour.
  */
 export async function withRevitConnection<T>(
-  operation: (client: RevitClientConnection) => Promise<T>
+  operation: (client: RevitClient) => Promise<T>
 ): Promise<T> {
-  // Wait for any pending connection to complete before starting a new one
-  const previousMutex = connectionMutex;
-  let releaseMutex: () => void;
-  connectionMutex = new Promise<void>((resolve) => {
-    releaseMutex = resolve;
-  });
-  await previousMutex;
+  const client: RevitClient = {
+    async sendCommand(command: string, params: any = {}) {
+      const docId = await resolveTargetDocId();
+      return broker.sendCommand(docId, command, params);
+    },
+  };
 
-  // Use the IPv4 loopback address explicitly so it matches the plugin's
-  // IPAddress.Loopback bind (avoids "localhost" resolving to IPv6 ::1).
-  const revitClient = new RevitClientConnection("127.0.0.1", 8080);
-
-  try {
-    // 连接到Revit客户端
-    if (!revitClient.isConnected) {
-      await new Promise<void>((resolve, reject) => {
-        const onConnect = () => {
-          revitClient.socket.removeListener("connect", onConnect);
-          revitClient.socket.removeListener("error", onError);
-          resolve();
-        };
-
-        const onError = (error: any) => {
-          revitClient.socket.removeListener("connect", onConnect);
-          revitClient.socket.removeListener("error", onError);
-          reject(new Error("connect to revit client failed"));
-        };
-
-        revitClient.socket.on("connect", onConnect);
-        revitClient.socket.on("error", onError);
-
-        revitClient.connect();
-
-        setTimeout(() => {
-          revitClient.socket.removeListener("connect", onConnect);
-          revitClient.socket.removeListener("error", onError);
-          reject(new Error("连接到Revit客户端失败"));
-        }, 5000);
-      });
-    }
-
-    // 执行操作
-    return await operation(revitClient);
-  } finally {
-    // 断开连接
-    revitClient.disconnect();
-    // Release the mutex so the next request can proceed
-    releaseMutex!();
-  }
+  await broker.ensureConnected();
+  return operation(client);
 }

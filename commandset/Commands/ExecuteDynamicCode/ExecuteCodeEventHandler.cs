@@ -5,6 +5,7 @@ using Autodesk.Revit.UI;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Newtonsoft.Json;
+using RevitMCPCommandSet.Utils;
 using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
@@ -50,7 +51,8 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
         {
             try
             {
-                var doc = app.ActiveUIDocument.Document;
+                // doc-agnostic: operate on the broker-selected document (falls back to active).
+                var doc = RevitDocumentContext.ResolveDocument(app);
                 ResultInfo = new ExecutionResultInfo();
 
                 object result;

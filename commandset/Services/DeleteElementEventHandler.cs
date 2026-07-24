@@ -1,5 +1,6 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using RevitMCPCommandSet.Utils;
 using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services
@@ -26,7 +27,8 @@ namespace RevitMCPCommandSet.Services
         {
             try
             {
-                var doc = app.ActiveUIDocument.Document;
+                // doc-agnostic: operate on the broker-selected document (falls back to active).
+                var doc = RevitDocumentContext.ResolveDocument(app);
                 DeletedCount = 0;
                 if (ElementIds == null || ElementIds.Length == 0)
                 {

@@ -1,5 +1,6 @@
 using Autodesk.Revit.UI;
 using RevitMCPCommandSet.Models.Common;
+using RevitMCPCommandSet.Utils;
 using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services
@@ -29,7 +30,8 @@ namespace RevitMCPCommandSet.Services
         {
             try
             {
-                var doc = app.ActiveUIDocument.Document;
+                // doc-agnostic: operate on the broker-selected document (falls back to active).
+                var doc = RevitDocumentContext.ResolveDocument(app);
 
                 // 可载入族
                 var familySymbols = new FilteredElementCollector(doc)

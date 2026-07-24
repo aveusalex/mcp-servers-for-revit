@@ -14,7 +14,8 @@ namespace RevitMCPCommandSet.Services.Architecture
     {
         private UIApplication _uiApp;
         private UIDocument _uiDoc => _uiApp.ActiveUIDocument;
-        private Document _doc => _uiDoc.Document;
+        // doc-agnostic: operate on the broker-selected document (falls back to active).
+        private Document _doc => RevitDocumentContext.ResolveDocument(_uiApp);
 
         /// <summary>
         /// Event wait object for synchronization

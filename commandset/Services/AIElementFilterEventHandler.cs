@@ -21,7 +21,8 @@ namespace RevitMCPCommandSet.Services
     {
         private UIApplication uiApp;
         private UIDocument uiDoc => uiApp.ActiveUIDocument;
-        private Document doc => uiDoc.Document;
+        // doc-agnostic: operate on the broker-selected document (falls back to active).
+        private Document doc => RevitDocumentContext.ResolveDocument(uiApp);
         private Autodesk.Revit.ApplicationServices.Application app => uiApp.Application;
         /// <summary>
         /// 事件等待对象

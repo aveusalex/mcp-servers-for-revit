@@ -1,0 +1,21 @@
+{
+  "name": "revit-mcp-broker",
+  "version": "1.0.0",
+  "description": "Loopback WebSocket broker that routes MCP commands to one or more Revit documents across one or more Revit processes.",
+  "type": "module",
+  "main": "src/broker.js",
+  "bin": {
+    "revit-mcp-broker": "./src/cli.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.1"
+  }
+}

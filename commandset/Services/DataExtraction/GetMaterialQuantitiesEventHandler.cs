@@ -1,6 +1,7 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitMCPCommandSet.Models.DataExtraction;
+using RevitMCPCommandSet.Utils;
 using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services.DataExtraction
@@ -32,8 +33,11 @@ namespace RevitMCPCommandSet.Services.DataExtraction
         {
             try
             {
+                // doc-agnostic: operate on the broker-selected document (falls back
+                // to the active document when no target is set).
+                var doc = RevitDocumentContext.ResolveDocument(app);
+                // Selection is an active-document concept; only used on the _selectedElementsOnly path.
                 var uiDoc = app.ActiveUIDocument;
-                var doc = uiDoc.Document;
 
                 // Dictionary to accumulate material quantities
                 var materialData = new Dictionary<ElementId, MaterialQuantityModel>();

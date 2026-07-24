@@ -2,6 +2,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitMCPCommandSet.Models.Architecture;
 using RevitMCPCommandSet.Models.Common;
+using RevitMCPCommandSet.Utils;
 using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services
@@ -10,7 +11,8 @@ namespace RevitMCPCommandSet.Services
     {
         private UIApplication uiApp;
         private UIDocument uiDoc => uiApp.ActiveUIDocument;
-        private Document doc => uiDoc.Document;
+        // doc-agnostic: operate on the broker-selected document (falls back to active).
+        private Document doc => RevitDocumentContext.ResolveDocument(uiApp);
 
         /// <summary>
         /// Event synchronization object

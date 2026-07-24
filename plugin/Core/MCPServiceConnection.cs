@@ -12,20 +12,22 @@ namespace revit_mcp_plugin.Core
         {
             try
             {
-                // 获取socket服务
-                // Obtain socket service.
-                SocketService service = SocketService.Instance;
+                // Kill switch. The BrokerClient connects automatically on startup;
+                // this button only cuts the connection to the broker (dropping every
+                // document in this session at once) or restores it.
+                BrokerClient client = BrokerClient.Instance;
 
-                if (service.IsRunning)
+                if (client.IsRunning)
                 {
-                    service.Stop();
-                    TaskDialog.Show("revitMCP", "Close Server");
+                    client.Stop();
+                    TaskDialog.Show("revitMCP", "Disconnected from MCP broker (kill switch).");
                 }
                 else
                 {
-                    service.Initialize(commandData.Application);
-                    service.Start();
-                    TaskDialog.Show("revitMCP", "Open Server");
+                    // Initialize() ran on startup and is idempotent; reconnecting is
+                    // just restarting the connect/heartbeat loop.
+                    client.Start();
+                    TaskDialog.Show("revitMCP", "Reconnecting to MCP broker.");
                 }
 
                 return Result.Succeeded;
