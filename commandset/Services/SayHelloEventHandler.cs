@@ -9,10 +9,14 @@ namespace RevitMCPCommandSet.Services
 
         public string Message { get; set; } = "Hello MCP!";
 
-        public bool WaitForCompletion(int timeoutMilliseconds = 10000)
+        public void Prepare()
         {
             _resetEvent.Reset();
-        return _resetEvent.WaitOne(timeoutMilliseconds);
+        }
+
+        public bool WaitForCompletion(int timeoutMilliseconds = 10000)
+        {
+            return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 
         public void Execute(UIApplication app)

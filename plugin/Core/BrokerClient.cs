@@ -358,6 +358,11 @@ namespace revit_mcp_plugin.Core
 
         private string ResolveScope(string command)
         {
+            // These commands depend on the active UI/view. Never allow a saved
+            // configuration to downgrade their safety classification.
+            if (DefaultUiBound.Contains(command))
+                return "ui-bound";
+
             if (_configManager?.Config?.Commands != null)
             {
                 foreach (var c in _configManager.Config.Commands)

@@ -7,6 +7,8 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Events;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Events;
+using RevitMCPSDK.API.Interfaces;
+using RevitApplication = Autodesk.Revit.ApplicationServices.Application;
 using revit_mcp_plugin.Utils;
 
 namespace revit_mcp_plugin.Core
@@ -27,7 +29,7 @@ namespace revit_mcp_plugin.Core
             _instance ?? (_instance = new DocumentSessionManager());
 
         private ILogger _logger;
-        private Application _app;         // full app, for enumerating Documents
+        private RevitApplication _app;         // full app, for enumerating Documents
         private string _revitVersion = "unknown";
         private string _activeDocId;
 
@@ -86,7 +88,7 @@ namespace revit_mcp_plugin.Core
         // RevitAPIEventArgs, so one contravariant handler serves both events.
         private void OnDocumentChanged(object sender, RevitAPIEventArgs args)
         {
-            if (_app == null && sender is Application app)
+            if (_app == null && sender is RevitApplication app)
             {
                 _app = app;
                 _revitVersion = app.VersionNumber;
@@ -118,12 +120,21 @@ namespace revit_mcp_plugin.Core
             try { StateChanged?.Invoke(); } catch { /* subscriber errors must not break events */ }
         }
 
-        /// <summary>Stable docId for a document, or null if it has no project information.</summary>
+        /// <summary>
+        /// Stable docId for a document. Revit 2024+ exposes CreationGUID, which is
+        /// unique per document even when projects originate from the same template.
+        /// Reflection keeps the add-in compatible with the older Revit API targets.
+        /// </summary>
         public static string DocIdOf(Document doc)
         {
             try
             {
                 if (doc == null) return null;
+
+                var creationGuid = doc.GetType().GetProperty("CreationGUID")?.GetValue(doc);
+                if (creationGuid is Guid guid && guid != Guid.Empty)
+                    return guid.ToString("D");
+
                 var info = doc.ProjectInformation;
                 return info != null ? info.UniqueId : null;
             }

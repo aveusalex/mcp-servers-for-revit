@@ -38,8 +38,7 @@ namespace RevitMCPCommandSet.Utils
                     if (doc.IsLinked) continue;
                     try
                     {
-                        var info = doc.ProjectInformation;
-                        if (info != null && info.UniqueId == targetDocId)
+                        if (DocIdOf(doc) == targetDocId)
                             return doc;
                     }
                     catch
@@ -56,5 +55,14 @@ namespace RevitMCPCommandSet.Utils
         /// <summary>docId currently requested by the broker, or null.</summary>
         public static string CurrentTargetDocId =>
             AppDomain.CurrentDomain.GetData(TargetKey) as string;
+
+        private static string DocIdOf(Document doc)
+        {
+            var creationGuid = doc.GetType().GetProperty("CreationGUID")?.GetValue(doc);
+            if (creationGuid is Guid guid && guid != Guid.Empty)
+                return guid.ToString("D");
+
+            return doc.ProjectInformation?.UniqueId;
+        }
     }
 }
