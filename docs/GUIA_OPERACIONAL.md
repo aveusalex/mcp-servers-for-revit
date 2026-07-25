@@ -188,6 +188,36 @@ Cada conversa pode ter seu processo server/, todos usando o mesmo broker local.
 Dê nomes distintos aos MCPs para não os confundir com PyRevit, Dynamo ou o
 servidor original.
 
+### Alerta: Claude Desktop e instalações múltiplas
+
+Antes de editar o Claude Desktop, o agente deve descobrir qual instalação está
+ativa e qual arquivo de configuração ela usa. O Claude pode ter sido instalado
+pelo instalador tradicional ou pela Microsoft Store; em especial, a instalação
+pela Store pode manter a configuração dentro da pasta de pacote em
+%LOCALAPPDATA%\Packages\..., e não em %APPDATA%\Claude\.
+
+No PowerShell, este comando ajuda a identificar a instalação registrada:
+
+~~~powershell
+Get-StartApps | Where-Object { $_.Name -eq 'Claude' } | Format-List Name,AppID
+~~~
+
+O agente deve seguir estas regras:
+
+1. Ler a configuração realmente ativa antes de alterá-la.
+2. Alterar somente mcpServers; preservar preferences e todas as entradas não
+   relacionadas ao Revit.
+3. Remover somente entradas legadas deste projeto, como mcp-server-for-revit ou
+   revit quando forem a bridge antiga; nunca apagar MCPs alheios.
+4. Usar o caminho real do clone encontrado naquele computador para server/build/index.js
+   e broker/src/cli.js. Nunca copiar um caminho de usuário ou área de trabalho
+   de outro PC.
+5. Salvar JSON válido, encerrar completamente o Claude Desktop e iniciá-lo pelo
+   menu Iniciar.
+6. Confirmar em **Configurações → Desenvolvedor → Servidores MCP locais** que
+   existe apenas a entrada esperada para este projeto.
+7. Confirmar que o processo node.exe correspondente executa server/build/index.js.
+
 ## 7. Primeiro teste seguro
 
 Use uma cópia do RVT e mantenha o Revit sem diálogos pendentes. Peça ao agente:

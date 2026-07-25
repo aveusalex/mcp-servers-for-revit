@@ -168,6 +168,15 @@ Restart Claude Desktop. When you see the hammer icon, the MCP server is connecte
 
 ![Claude Desktop connection](./assets/claude.png)
 
+## Cadastro no Claude Desktop (Windows)
+
+Antes de configurar o Claude Desktop, confirme qual instalação e qual arquivo
+de configuração estão realmente ativos no computador. Há variantes instaladas
+pelo instalador tradicional e pela Microsoft Store; seus caminhos de
+configuração podem ser diferentes. Siga o alerta genérico no
+[guia operacional](docs/GUIA_OPERACIONAL.md#outros-clientes-mcp-locais) antes
+de editar `mcpServers`.
+
 ## Revit Plugin Setup
 
 If using a release ZIP, the plugin is already included. For manual installation:
