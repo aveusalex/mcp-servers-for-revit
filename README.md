@@ -57,6 +57,16 @@ multiple MCP clients coexist.
 - **Command Set** (`commandset/`, C#): executes the Revit API operations.
   Doc-agnostic commands resolve their `Document` from the broker-selected target.
 
+### Revit links
+
+`list_revit_links` is a read-only inventory of the selected host model's Revit
+links. It returns the hierarchy of loaded and unloaded links, each link
+instance's identity and transform into host coordinates, and its source path
+when Revit exposes one. A linked model is never treated as an editable MCP
+target: to modify a house/project that is linked into a host model, open its
+source RVT as a normal Revit document and select it with `list_open_documents`
+and `set_target_document`.
+
 > Commands to different documents are serialized onto Revit's single UI thread
 > (via `ExternalEvent`), so they interleave in one queue rather than running in
 > true parallel.
@@ -200,6 +210,7 @@ If using a release ZIP, the command set is pre-installed inside the plugin. For 
 | `query_stored_data` | Query stored project and room data |
 | `send_code_to_revit` | Send C# code to Revit to execute |
 | `say_hello` | Display a greeting dialog in Revit (connection test) |
+| `list_revit_links` | Read-only tree of Revit links in the selected host model |
 
 ## Testing
 

@@ -15,6 +15,12 @@
       "scope": "doc-agnostic"
     },
     {
+      "commandName": "list_revit_links",
+      "description": "Lists the selected document's loaded and unloaded Revit links as a read-only tree",
+      "assemblyPath": "RevitMCPCommandSet.dll",
+      "scope": "doc-agnostic"
+    },
+    {
       "commandName": "get_available_family_types",
       "description": "get available family types",
       "assemblyPath": "RevitMCPCommandSet.dll",

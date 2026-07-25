@@ -17,6 +17,7 @@ const { AuditLog } = await import("../../broker/src/audit.js");
 const { broker: brokerClient } = await import("../build/utils/BrokerConnection.js");
 const targeting = await import("../build/utils/targeting.js");
 const { withRevitConnection } = await import("../build/utils/ConnectionManager.js");
+const { registerListRevitLinksTool } = await import("../build/tools/list_revit_links.js");
 
 class NullAudit extends AuditLog {
   constructor() {
@@ -114,6 +115,29 @@ test("fixed target applies when no explicit document is given", async () => {
   const res = await withRevitConnection((c) => c.sendCommand("create_grid", {}));
   assert.equal(res.routedTo, "A");
   targeting.setFixedTarget(undefined);
+  plugin.close();
+  await delay(50);
+});
+
+test("list_revit_links routes a read-only query to its selected host document", async () => {
+  plugin = fakePlugin(8090, broker.token, [
+    { docId: "host", title: "Condominio", isActive: true },
+    { docId: "other", title: "Outro Projeto", isActive: false },
+  ]);
+  await waitFor(() => brokerClient.listDocuments().then((d) => d.length === 2));
+
+  let handler;
+  registerListRevitLinksTool({
+    tool(name, ...args) {
+      assert.equal(name, "list_revit_links");
+      handler = args[args.length - 1];
+    },
+  });
+
+  const response = await targeting.runWithExplicitDocument("host", () => handler());
+  const payload = JSON.parse(response.content[0].text);
+  assert.equal(payload.routedTo, "host");
+  assert.equal(payload.command, "list_revit_links");
   plugin.close();
   await delay(50);
 });
