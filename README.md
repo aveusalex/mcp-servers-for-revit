@@ -4,6 +4,10 @@
 
 **Connect AI assistants to Autodesk Revit via the Model Context Protocol.**
 
+> Para implantação em um escritório, configuração no Codex, atualização,
+> remoção, convivência com PyRevit/Dynamo e instruções para agentes, leia o
+> [Guia operacional](docs/GUIA_OPERACIONAL.md).
+
 mcp-servers-for-revit enables AI clients like Claude, Cline, and other MCP-compatible tools to read, create, modify, and delete elements in Revit projects. It consists of three components: a TypeScript MCP server that exposes tools to AI, a C# Revit add-in that bridges commands into Revit, and a command set that implements the actual Revit API operations.
 
 > [!NOTE]
@@ -101,7 +105,7 @@ under `%APPDATA%\revit-mcp\audit\`.
 
 ## Requirements
 
-- **Node.js 18+** (for the MCP server)
+- **Node.js 20+** (for the MCP server and broker)
 - **Autodesk Revit 2020 - 2026** (any supported version)
 
 ## Quick Start (Using a Release)
