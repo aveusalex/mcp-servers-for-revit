@@ -60,9 +60,10 @@ multiple MCP clients coexist.
 ### Revit links
 
 `list_revit_links` is a read-only inventory of the selected host model's Revit
-links. It returns the hierarchy of loaded and unloaded links, each link
-instance's identity and transform into host coordinates, and its source path
-when Revit exposes one. A linked model is never treated as an editable MCP
+links. It normalizes Revit's duplicate nested-link representations into one
+tree and returns loaded/unloaded state, each link instance's identity and
+transform into host coordinates, and its source path when Revit exposes one.
+A linked model is never treated as an editable MCP
 target: to modify a house/project that is linked into a host model, open its
 source RVT as a normal Revit document and select it with `list_open_documents`
 and `set_target_document`.

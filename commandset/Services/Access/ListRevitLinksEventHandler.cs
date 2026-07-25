@@ -41,14 +41,25 @@ namespace RevitMCPCommandSet.Services.Access
                 if (host == null)
                     throw new InvalidOperationException("No target Revit document is available.");
 
-                var links = new List<RevitLinkInfo>();
-                foreach (var instance in new FilteredElementCollector(host)
+                var hostInstances = new FilteredElementCollector(host)
                     .OfClass(typeof(RevitLinkInstance))
-                    .Cast<RevitLinkInstance>())
+                    .Cast<RevitLinkInstance>()
+                    .ToList();
+                var consumedHostNestedInstances = new HashSet<string>(StringComparer.Ordinal);
+                var links = new List<RevitLinkInfo>();
+
+                // Revit can surface a nested link both as a child of its parent
+                // document and as a direct instance in the host. Only true roots
+                // belong at the top level; nested host instances are matched below
+                // to provide the child's effective loaded state and transform.
+                foreach (var instance in hostInstances.Where(i => !IsNestedInstance(host, i)))
                 {
                     links.Add(BuildLinkInfo(host, instance, Transform.Identity,
-                        new List<string>(), 0, new HashSet<string>(StringComparer.Ordinal)));
+                        new List<string>(), 0, new HashSet<string>(StringComparer.Ordinal),
+                        host, hostInstances, consumedHostNestedInstances));
                 }
+
+                int totalLinkInstanceCount = CountTree(links);
 
                 ResultInfo = new RevitLinksResult
                 {
@@ -56,8 +67,10 @@ namespace RevitMCPCommandSet.Services.Access
                     HostDocumentTitle = host.Title,
                     HostDocumentId = DocumentIdOf(host),
                     LinkCount = links.Count,
+                    TopLevelLinkCount = links.Count,
+                    TotalLinkInstanceCount = totalLinkInstanceCount,
                     Links = links,
-                    Message = $"Found {links.Count} top-level Revit link instance(s). Linked models are read-only; open a source model separately to edit it."
+                    Message = $"Found {links.Count} top-level and {totalLinkInstanceCount} total Revit link instance(s). Linked models are read-only; open a source model separately to edit it."
                 };
             }
             catch (Exception ex)
@@ -80,28 +93,53 @@ namespace RevitMCPCommandSet.Services.Access
             Transform parentTransform,
             List<string> parentPath,
             int depth,
-            HashSet<string> ancestors)
+            HashSet<string> ancestors,
+            Document hostDocument,
+            List<RevitLinkInstance> hostInstances,
+            HashSet<string> consumedHostNestedInstances)
         {
             RevitLinkType linkType = parentDocument.GetElement(instance.GetTypeId()) as RevitLinkType;
-            Document linkedDocument = null;
-            try { linkedDocument = instance.GetLinkDocument(); } catch { }
-
             Transform localTransform = SafeTransform(instance);
             Transform hostTransform = parentTransform.Multiply(localTransform);
-            var instancePath = new List<string>(parentPath) { instance.UniqueId };
+            RevitLinkInstance effectiveInstance = instance;
+            Document linkedDocument = SafeLinkedDocument(instance);
+
+            // A nested link can be loaded in the host even when the link instance
+            // exposed by its parent document reports no loaded document. Match the
+            // host representation by source and composed transform so the tree has
+            // one node with the effective host identity/state rather than a
+            // duplicate root plus an apparently unloaded child.
+            if (linkedDocument == null && depth > 0)
+            {
+                RevitLinkInstance hostRepresentation = FindLoadedHostRepresentation(
+                    hostDocument, hostInstances, linkType, hostTransform,
+                    consumedHostNestedInstances);
+                if (hostRepresentation != null)
+                {
+                    effectiveInstance = hostRepresentation;
+                    linkedDocument = SafeLinkedDocument(hostRepresentation);
+                    hostTransform = SafeTransform(hostRepresentation);
+                    consumedHostNestedInstances.Add(hostRepresentation.UniqueId);
+                }
+            }
+
+            RevitLinkType effectiveType = effectiveInstance == instance
+                ? linkType
+                : hostDocument.GetElement(effectiveInstance.GetTypeId()) as RevitLinkType ?? linkType;
+            var instancePath = new List<string>(parentPath) { effectiveInstance.UniqueId };
             string traversalKey = $"{DocumentIdOf(parentDocument)}:{instance.UniqueId}";
 
             var info = new RevitLinkInfo
             {
-                LinkInstanceUniqueId = instance.UniqueId,
-                LinkInstanceElementId = instance.Id.IntegerValue,
-                LinkTypeUniqueId = linkType?.UniqueId,
-                Name = instance.Name,
-                SourcePath = SourcePathOf(linkType),
-                LoadStatus = LoadStatusOf(linkType),
+                LinkInstanceUniqueId = effectiveInstance.UniqueId,
+                LinkInstanceElementId = effectiveInstance.Id.IntegerValue,
+                LinkTypeUniqueId = effectiveType?.UniqueId,
+                Name = effectiveInstance.Name,
+                SourcePath = SourcePathOf(effectiveType),
+                LoadStatus = linkedDocument != null ? "Loaded" : LoadStatusOf(effectiveType),
                 IsLoaded = linkedDocument != null,
                 IsNested = linkType?.IsNestedLink ?? false,
-                AttachmentType = AttachmentTypeOf(linkType),
+                AttachmentType = AttachmentTypeOf(effectiveType),
                 LinkedDocumentTitle = linkedDocument?.Title,
                 LinkedDocumentId = DocumentIdOf(linkedDocument),
                 InstancePath = instancePath,
@@ -121,7 +159,8 @@ namespace RevitMCPCommandSet.Services.Access
                 .Cast<RevitLinkInstance>())
             {
                 info.Children.Add(BuildLinkInfo(linkedDocument, child, hostTransform,
-                    instancePath, depth + 1, nextAncestors));
+                    instancePath, depth + 1, nextAncestors, hostDocument,
+                    hostInstances, consumedHostNestedInstances));
             }
 
             return info;
@@ -145,6 +184,63 @@ namespace RevitMCPCommandSet.Services.Access
         }
 
         private static double[] Vector(XYZ value) => new[] { value.X, value.Y, value.Z };
+
+        private static Document SafeLinkedDocument(RevitLinkInstance instance)
+        {
+            try { return instance.GetLinkDocument(); }
+            catch { return null; }
+        }
+
+        private static bool IsNestedInstance(Document document, RevitLinkInstance instance)
+        {
+            try
+            {
+                return (document.GetElement(instance.GetTypeId()) as RevitLinkType)?.IsNestedLink ?? false;
+            }
+            catch { return false; }
+        }
+
+        private static RevitLinkInstance FindLoadedHostRepresentation(
+            Document hostDocument,
+            IEnumerable<RevitLinkInstance> hostInstances,
+            RevitLinkType nestedType,
+            Transform expectedHostTransform,
+            ISet<string> consumed)
+        {
+            string sourcePath = SourcePathOf(nestedType);
+            if (string.IsNullOrEmpty(sourcePath)) return null;
+
+            return hostInstances
+                .Where(candidate => !consumed.Contains(candidate.UniqueId))
+                .Where(candidate => IsNestedInstance(hostDocument, candidate))
+                .Where(candidate => SafeLinkedDocument(candidate) != null)
+                .Where(candidate => string.Equals(
+                    SourcePathOf(hostDocument.GetElement(candidate.GetTypeId()) as RevitLinkType),
+                    sourcePath,
+                    StringComparison.OrdinalIgnoreCase))
+                .OrderBy(candidate => TransformDistance(SafeTransform(candidate), expectedHostTransform))
+                .FirstOrDefault();
+        }
+
+        private static double TransformDistance(Transform left, Transform right)
+        {
+            return VectorDistance(left.Origin, right.Origin)
+                + VectorDistance(left.BasisX, right.BasisX)
+                + VectorDistance(left.BasisY, right.BasisY)
+                + VectorDistance(left.BasisZ, right.BasisZ);
+        }
+
+        private static double VectorDistance(XYZ left, XYZ right)
+        {
+            return Math.Abs(left.X - right.X)
+                + Math.Abs(left.Y - right.Y)
+                + Math.Abs(left.Z - right.Z);
+        }
+
+        private static int CountTree(IEnumerable<RevitLinkInfo> links)
+        {
+            return links.Sum(link => 1 + CountTree(link.Children));
+        }
 
         private static string DocumentIdOf(Document document)
         {

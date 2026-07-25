@@ -43,6 +43,8 @@ namespace RevitMCPCommandSet.Models.Links
         public bool Success { get; set; }
         public string HostDocumentTitle { get; set; }
         public string HostDocumentId { get; set; }
+        public int TopLevelLinkCount { get; set; }
+        public int TotalLinkInstanceCount { get; set; }
         public int LinkCount { get; set; }
         public List<RevitLinkInfo> Links { get; set; } = new List<RevitLinkInfo>();
         public string Message { get; set; }

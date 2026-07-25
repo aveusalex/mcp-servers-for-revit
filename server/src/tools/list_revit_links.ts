@@ -9,7 +9,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerListRevitLinksTool(server: McpServer) {
   server.tool(
     "list_revit_links",
-    "List the Revit-link tree in the selected host document, including loaded/unloaded status, source path, attachment type, nested links, instance identity, and each instance's transform into host coordinates. Read-only: linked models cannot be modified through this tool; open the source RVT as a normal document to edit it.",
+    "List the normalized Revit-link tree in the selected host document, including loaded/unloaded status, source path, attachment type, nested links, instance identity, and each instance's transform into host coordinates. The result returns both top-level and total instance counts, and prevents a nested link from being duplicated as a root. Read-only: linked models cannot be modified through this tool; open the source RVT as a normal document to edit it.",
     {},
     async () => {
       try {
