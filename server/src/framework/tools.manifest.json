@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "9eaf8f092d303f294b76cde9182539af1502f4c1313866c3380ccde2d51e589b",
+  "capabilityHash": "8bcbc5ab768d881cabe1d3576571595045b568c027d6affc8fecdf09be430d9f",
   "tools": [
     {
       "name": "activate_view",
@@ -14178,6 +14178,66 @@
         },
         "required": [
           "elementIds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "stretch_model",
+      "description": "Shorten the model by removing a band along the project X or Y axis, like Revit's Stretch: everything entirely on the moving side moves by the band width; walls crossing the band are shortened (their doors/windows on the moving side move with the cut), floors, ceilings, roofs and filled regions crossing it have their sketches stretched, rooms and point-based elements on the moving side move, and plan annotations follow (includeAnnotations). Choose a band that crosses no wall running across it, no stair and no room you want to keep at full size: elements lying inside the band or that can't be stretched (arcs walls, railings, groups crossing it) are reported and left alone. Topography, levels, grids and views are not touched. Preview with dryRun first. One undo step.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "editing",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 300,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "axis": {
+            "description": "Project axis the band is measured along: y (default, plan north-south) or x.",
+            "type": "string",
+            "enum": [
+              "x",
+              "y"
+            ],
+            "default": "y"
+          },
+          "from": {
+            "description": "Start of the band to remove, in mm along the axis (project internal origin).",
+            "type": "number",
+            "x-unit": "mm"
+          },
+          "to": {
+            "description": "End of the band to remove (greater than from). The model shrinks by to − from. Unit: mm.",
+            "type": "number",
+            "x-unit": "mm"
+          },
+          "movingSide": {
+            "description": "Which side moves to close the gap: low (default: everything below from moves up by to − from) or high (everything above to moves down).",
+            "type": "string",
+            "enum": [
+              "low",
+              "high"
+            ],
+            "default": "low"
+          },
+          "includeAnnotations": {
+            "description": "Also move/stretch view-specific elements of plan views (texts, tags, detail lines, filled regions). Dimensions follow their references. Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "excludeCategories": {
+            "description": "Categories left alone (pt-BR or English). Default: Topography. Levels, grids, views, links and section marks are never touched.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "from",
+          "to"
         ],
         "additionalProperties": false
       }
