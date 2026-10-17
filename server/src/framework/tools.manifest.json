@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "3675ff103fb2f5c98be51c92fd1347ccf8344e1b48e2081dca609c1055dc5a6d",
+  "capabilityHash": "4dcded378df47c32906fa1342752287eee67c7759feb3aacf85e5f0749115900",
   "tools": [
     {
       "name": "activate_view",
@@ -1390,6 +1390,259 @@
       }
     },
     {
+      "name": "configure_millwork_module",
+      "description": "Change a millwork module created by create_millwork_module (adjust size, doors, hinge side, drawers, shelves, dividers, front style, thickness, toe kick, materials, mark, position...): the module's stored parameters are merged with the changes and the module is rebuilt in place (its current position and rotation are kept if the group was moved), replacing the old parts and group. Returns the new group and part ids and the cutting list. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "description": "The module: its group id, the id of any of its parts, or its mark (e.g. \"M01\").",
+            "type": "string"
+          },
+          "changes": {
+            "description": "Only what changes; everything else is kept (including where the group is now, if it was moved or rotated). Same fields as create_millwork_module. Pass \"-\" to clear a material, mark or name.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "description": "base = inferior (on the floor, toe kick), wall = aéreo (hung, no toe kick), tall = torre/paneleiro (floor to high). Required to create.",
+                "type": "string",
+                "enum": [
+                  "base",
+                  "wall",
+                  "tall"
+                ]
+              },
+              "width": {
+                "description": "Overall width (largura) in mm, along the module's X. Required to create.",
+                "type": "number",
+                "minimum": 100,
+                "maximum": 6000,
+                "x-unit": "mm"
+              },
+              "height": {
+                "description": "Overall height (altura) in mm including the toe kick. Required to create.",
+                "type": "number",
+                "minimum": 100,
+                "maximum": 4000,
+                "x-unit": "mm"
+              },
+              "depth": {
+                "description": "Overall depth (profundidade) of the carcass in mm, without overlay fronts. Required to create.",
+                "type": "number",
+                "minimum": 100,
+                "maximum": 1500,
+                "x-unit": "mm"
+              },
+              "thickness": {
+                "description": "Carcass panel thickness (MDF/MDP) in mm. Default 18.",
+                "type": "number",
+                "minimum": 6,
+                "maximum": 50,
+                "x-unit": "mm"
+              },
+              "frontThickness": {
+                "description": "Door and drawer front thickness in mm. Default = thickness.",
+                "type": "number",
+                "minimum": 6,
+                "maximum": 50,
+                "x-unit": "mm"
+              },
+              "backPanel": {
+                "description": "Back panel (fundo) behind the bottom and top, between the sides. Default true.",
+                "type": "boolean"
+              },
+              "backThickness": {
+                "description": "Back panel thickness in mm. Default 6.",
+                "type": "number",
+                "minimum": 3,
+                "maximum": 30,
+                "x-unit": "mm"
+              },
+              "topPanel": {
+                "description": "Top of the carcass: full panel, rails (two travessas, front and back, for base modules under a stone top) or none. Default auto = rails for base, full otherwise.",
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "full",
+                  "rails",
+                  "none"
+                ]
+              },
+              "railWidth": {
+                "description": "Width of each top rail (travessa) in mm when topPanel is rails. Default 100.",
+                "type": "number",
+                "minimum": 40,
+                "maximum": 300,
+                "x-unit": "mm"
+              },
+              "shelves": {
+                "description": "Adjustable shelves (prateleiras) per bay, evenly spaced in the door/open zone. Default 0.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 20
+              },
+              "dividers": {
+                "description": "Internal vertical dividers (divisórias) splitting the door/open zone into equal bays. Default 0.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10
+              },
+              "doors": {
+                "description": "Number of doors side by side in the door zone. Default 0 (open module or drawers only).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 12
+              },
+              "hingeSide": {
+                "description": "Hinge side of a single door, and of the last door when the count is odd (pairs open left/right). Default left.",
+                "type": "string",
+                "enum": [
+                  "left",
+                  "right"
+                ]
+              },
+              "doorOpening": {
+                "description": "Door opening: swing (giro), lift_up (basculante, hinges at the top) or flap_down (tombar, hinges at the bottom). Recorded in the parts list. Default swing.",
+                "type": "string",
+                "enum": [
+                  "swing",
+                  "lift_up",
+                  "flap_down"
+                ]
+              },
+              "frontStyle": {
+                "description": "overlay (sobreposta: fronts in front of the carcass) or inset (embutida: fronts inside the opening, internals set back). Default overlay.",
+                "type": "string",
+                "enum": [
+                  "overlay",
+                  "inset"
+                ]
+              },
+              "gap": {
+                "description": "Gap (folga) between fronts and around them in mm. Default 3.",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 20,
+                "x-unit": "mm"
+              },
+              "drawers": {
+                "description": "Number of drawers stacked in one column over the full width. Default 0.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 12
+              },
+              "drawerHeights": {
+                "description": "Drawer front heights in mm, from the top drawer down (one per drawer). Default: 180 each with doors, equal split without doors.",
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "x-unit": "mm"
+              },
+              "drawerPosition": {
+                "description": "With doors and drawers: drawers above (top, default) or below (bottom) the doors.",
+                "type": "string",
+                "enum": [
+                  "top",
+                  "bottom"
+                ]
+              },
+              "drawerBoxThickness": {
+                "description": "Drawer box side/front/back thickness in mm. Default 15.",
+                "type": "number",
+                "minimum": 6,
+                "maximum": 30,
+                "x-unit": "mm"
+              },
+              "toeKickHeight": {
+                "description": "Toe kick (rodapé) height in mm for base and tall modules. Default 100; wall modules have none.",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 300,
+                "x-unit": "mm"
+              },
+              "toeKickRecess": {
+                "description": "How far the front toe-kick board is set back from the carcass front, mm. Default 50.",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 200,
+                "x-unit": "mm"
+              },
+              "carcassMaterial": {
+                "description": "Material (name or id) of the carcass: sides, bottom, top, rails, shelves, dividers, toe kick, drawer boxes. Default: category material.",
+                "type": "string"
+              },
+              "frontMaterial": {
+                "description": "Material (name or id) of doors and drawer fronts. Default: carcassMaterial.",
+                "type": "string"
+              },
+              "backMaterial": {
+                "description": "Material (name or id) of the back panel and drawer bottoms. Default: carcassMaterial.",
+                "type": "string"
+              },
+              "mark": {
+                "description": "Module identifier (e.g. \"M01\"): prefixes every part's Comments and names the group.",
+                "type": "string"
+              },
+              "name": {
+                "description": "Free description (e.g. \"Cozinha - pia\"); stored with the module and reported in the parts list.",
+                "type": "string"
+              },
+              "level": {
+                "description": "Level by name or id. Required to create.",
+                "type": "string"
+              },
+              "point": {
+                "description": "Insertion point in plan, mm: the FRONT-LEFT corner of the carcass. The module extends +X (width) and +Y (depth, towards the back) before rotation, so at rotation 0 it faces -Y. Required to create.",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate in mm from the project's internal origin.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate in mm from the project's internal origin.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              },
+              "elevation": {
+                "description": "Bottom of the module above the level, mm. Default 0 (base/tall) or 1500 (wall).",
+                "type": "number",
+                "minimum": -5000,
+                "maximum": 10000,
+                "x-unit": "mm"
+              },
+              "rotation": {
+                "description": "Counter-clockwise rotation in plan about the insertion point, degrees. Default 0.",
+                "type": "number",
+                "x-unit": "deg"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "module",
+          "changes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "copy_parameters",
       "description": "Copy parameter values from one source element to 1..500 target elements (match properties). Copies the listed parameters, or every editable parameter they share; only when storage and data type match (any value can go into a text parameter). Measures are copied exactly in internal units. scope=type copies type parameters onto the targets' types. mapping renames parameters between categories. Skipped pairs are reported with a reason. Read-back and revert[] as set_parameters. Undo: Ctrl+Z or send revert[] to set_parameters / set_type_parameters.",
       "kind": "write",
@@ -2495,6 +2748,244 @@
         "required": [
           "name"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_millwork_module",
+      "description": "Create a parametric millwork module (marcenaria: base/inferior, wall/aéreo or tall/torre) from MDF panels, each a Casework DirectShape with its own material, grouped as one Revit group: sides, bottom, top or rails, back, toe kick, dividers, shelves, doors (count, hinge side, swing/lift/flap, overlay or inset, gap) and drawers (fronts + boxes). Requires kind, width, height, depth (mm), level and point (front-left corner; rotation CCW). Returns the group id, part ids and a cutting list (piece, qty, length x width x thickness mm, material). Change it later with configure_millwork_module. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "base = inferior (on the floor, toe kick), wall = aéreo (hung, no toe kick), tall = torre/paneleiro (floor to high). Required to create.",
+            "type": "string",
+            "enum": [
+              "base",
+              "wall",
+              "tall"
+            ]
+          },
+          "width": {
+            "description": "Overall width (largura) in mm, along the module's X. Required to create.",
+            "type": "number",
+            "minimum": 100,
+            "maximum": 6000,
+            "x-unit": "mm"
+          },
+          "height": {
+            "description": "Overall height (altura) in mm including the toe kick. Required to create.",
+            "type": "number",
+            "minimum": 100,
+            "maximum": 4000,
+            "x-unit": "mm"
+          },
+          "depth": {
+            "description": "Overall depth (profundidade) of the carcass in mm, without overlay fronts. Required to create.",
+            "type": "number",
+            "minimum": 100,
+            "maximum": 1500,
+            "x-unit": "mm"
+          },
+          "thickness": {
+            "description": "Carcass panel thickness (MDF/MDP) in mm. Default 18.",
+            "type": "number",
+            "minimum": 6,
+            "maximum": 50,
+            "x-unit": "mm"
+          },
+          "frontThickness": {
+            "description": "Door and drawer front thickness in mm. Default = thickness.",
+            "type": "number",
+            "minimum": 6,
+            "maximum": 50,
+            "x-unit": "mm"
+          },
+          "backPanel": {
+            "description": "Back panel (fundo) behind the bottom and top, between the sides. Default true.",
+            "type": "boolean"
+          },
+          "backThickness": {
+            "description": "Back panel thickness in mm. Default 6.",
+            "type": "number",
+            "minimum": 3,
+            "maximum": 30,
+            "x-unit": "mm"
+          },
+          "topPanel": {
+            "description": "Top of the carcass: full panel, rails (two travessas, front and back, for base modules under a stone top) or none. Default auto = rails for base, full otherwise.",
+            "type": "string",
+            "enum": [
+              "auto",
+              "full",
+              "rails",
+              "none"
+            ]
+          },
+          "railWidth": {
+            "description": "Width of each top rail (travessa) in mm when topPanel is rails. Default 100.",
+            "type": "number",
+            "minimum": 40,
+            "maximum": 300,
+            "x-unit": "mm"
+          },
+          "shelves": {
+            "description": "Adjustable shelves (prateleiras) per bay, evenly spaced in the door/open zone. Default 0.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "dividers": {
+            "description": "Internal vertical dividers (divisórias) splitting the door/open zone into equal bays. Default 0.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "doors": {
+            "description": "Number of doors side by side in the door zone. Default 0 (open module or drawers only).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 12
+          },
+          "hingeSide": {
+            "description": "Hinge side of a single door, and of the last door when the count is odd (pairs open left/right). Default left.",
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ]
+          },
+          "doorOpening": {
+            "description": "Door opening: swing (giro), lift_up (basculante, hinges at the top) or flap_down (tombar, hinges at the bottom). Recorded in the parts list. Default swing.",
+            "type": "string",
+            "enum": [
+              "swing",
+              "lift_up",
+              "flap_down"
+            ]
+          },
+          "frontStyle": {
+            "description": "overlay (sobreposta: fronts in front of the carcass) or inset (embutida: fronts inside the opening, internals set back). Default overlay.",
+            "type": "string",
+            "enum": [
+              "overlay",
+              "inset"
+            ]
+          },
+          "gap": {
+            "description": "Gap (folga) between fronts and around them in mm. Default 3.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 20,
+            "x-unit": "mm"
+          },
+          "drawers": {
+            "description": "Number of drawers stacked in one column over the full width. Default 0.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 12
+          },
+          "drawerHeights": {
+            "description": "Drawer front heights in mm, from the top drawer down (one per drawer). Default: 180 each with doors, equal split without doors.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "x-unit": "mm"
+          },
+          "drawerPosition": {
+            "description": "With doors and drawers: drawers above (top, default) or below (bottom) the doors.",
+            "type": "string",
+            "enum": [
+              "top",
+              "bottom"
+            ]
+          },
+          "drawerBoxThickness": {
+            "description": "Drawer box side/front/back thickness in mm. Default 15.",
+            "type": "number",
+            "minimum": 6,
+            "maximum": 30,
+            "x-unit": "mm"
+          },
+          "toeKickHeight": {
+            "description": "Toe kick (rodapé) height in mm for base and tall modules. Default 100; wall modules have none.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 300,
+            "x-unit": "mm"
+          },
+          "toeKickRecess": {
+            "description": "How far the front toe-kick board is set back from the carcass front, mm. Default 50.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 200,
+            "x-unit": "mm"
+          },
+          "carcassMaterial": {
+            "description": "Material (name or id) of the carcass: sides, bottom, top, rails, shelves, dividers, toe kick, drawer boxes. Default: category material.",
+            "type": "string"
+          },
+          "frontMaterial": {
+            "description": "Material (name or id) of doors and drawer fronts. Default: carcassMaterial.",
+            "type": "string"
+          },
+          "backMaterial": {
+            "description": "Material (name or id) of the back panel and drawer bottoms. Default: carcassMaterial.",
+            "type": "string"
+          },
+          "mark": {
+            "description": "Module identifier (e.g. \"M01\"): prefixes every part's Comments and names the group.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Free description (e.g. \"Cozinha - pia\"); stored with the module and reported in the parts list.",
+            "type": "string"
+          },
+          "level": {
+            "description": "Level by name or id. Required to create.",
+            "type": "string"
+          },
+          "point": {
+            "description": "Insertion point in plan, mm: the FRONT-LEFT corner of the carcass. The module extends +X (width) and +Y (depth, towards the back) before rotation, so at rotation 0 it faces -Y. Required to create.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "elevation": {
+            "description": "Bottom of the module above the level, mm. Default 0 (base/tall) or 1500 (wall).",
+            "type": "number",
+            "minimum": -5000,
+            "maximum": 10000,
+            "x-unit": "mm"
+          },
+          "rotation": {
+            "description": "Counter-clockwise rotation in plan about the insertion point, degrees. Default 0.",
+            "type": "number",
+            "x-unit": "deg"
+          }
+        },
         "additionalProperties": false
       }
     },
@@ -7852,6 +8343,61 @@
         "required": [
           "operation"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "millwork_cutting_list",
+      "description": "Cutting list of millwork modules created by create_millwork_module: piece, quantity, length x width x thickness (mm), material and area (m²), per module or merged by material, plus totals per material and thickness and an estimate of raw sheets (area-based with a waste allowance; not a nesting optimisation). Reads the parameters stored on the parts; does not change the model.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "modules": {
+            "description": "Modules to include (group id, part id or mark). Default: every module created by create_millwork_module.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "groupBy": {
+            "description": "module (default): rows per module. material: identical pieces of all modules merged (for ordering/cutting).",
+            "type": "string",
+            "enum": [
+              "module",
+              "material"
+            ],
+            "default": "module"
+          },
+          "sheetLength": {
+            "description": "Raw sheet length for the sheet estimate, mm. Default 2750 (common MDF sheet in Brazil).",
+            "type": "number",
+            "minimum": 500,
+            "maximum": 4000,
+            "x-unit": "mm",
+            "default": 2750
+          },
+          "sheetWidth": {
+            "description": "Raw sheet width for the sheet estimate, mm. Default 1850.",
+            "type": "number",
+            "minimum": 300,
+            "maximum": 2500,
+            "x-unit": "mm",
+            "default": 1850
+          },
+          "wastePercent": {
+            "description": "Cutting waste allowance in percent for the sheet estimate. Default 15.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 60,
+            "default": 15
+          }
+        },
         "additionalProperties": false
       }
     },
