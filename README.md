@@ -222,9 +222,10 @@ If using a release ZIP, the command set is pre-installed inside the plugin. For 
 | `store_project_data` | Store project metadata in local database |
 | `store_room_data` | Store room metadata in local database |
 | `query_stored_data` | Query stored project and room data |
-| `send_code_to_revit` | Send C# code to Revit to execute |
+| `send_code_to_revit` | Send C# code to Revit to execute (`transactionMode`: `auto`, `rollback` = read mode, `none`) |
 | `say_hello` | Display a greeting dialog in Revit (connection test) |
 | `list_revit_links` | Read-only tree of Revit links in the selected host model |
+| `get_office_knowledge` | Server-only: list or read the office conventions in `knowledge/` (or `REVIT_MCP_KNOWLEDGE_DIR`) |
 
 ## Testing
 
