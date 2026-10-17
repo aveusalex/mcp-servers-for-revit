@@ -2,6 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerTools } from "./tools/register.js";
+import { registerWorkflowPrompts } from "./framework/prompts.js";
 
 // 创建服务器实例
 const server = new McpServer({
@@ -13,6 +14,8 @@ const server = new McpServer({
 async function main() {
   // 注册工具
   await registerTools(server);
+  // Guided workflows (MCP prompts, INF-06)
+  registerWorkflowPrompts(server);
 
   // 连接到传输层
   const transport = new StdioServerTransport();
