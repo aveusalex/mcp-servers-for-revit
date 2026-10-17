@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "b32819b8f249b51a42999b0625e53dddfbe330010298f671eeed84a234e8ce49",
+  "capabilityHash": "e98cbcd1406e5bbbbe5c8a8d7a269adc485b0a8a56e3ad527ec3279ba020a4fa",
   "tools": [
     {
       "name": "create_area",
@@ -775,6 +775,160 @@
         "required": [
           "items"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_room_envelope",
+      "description": "Close rooms in one go: finish floor and ceiling over each room's inner outline, baseboard (rodapé) and ceiling trim (tabica) along its perimeter, each with an explicitly named type. Parts already present (a floor/ceiling over the room) are skipped by default. A failing part does not stop the others: every room reports created/skipped/failed per part with ids. Run with dryRun first to show the plan. One Ctrl+Z undoes the whole call.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rooms": {
+            "description": "Rooms by id, number or name. Give rooms or level.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "level": {
+            "description": "All placed rooms of this level (name or id). Give rooms or level.",
+            "type": "string"
+          },
+          "floorFinish": {
+            "description": "Finish floor (piso de acabamento) over the room's inner outline.",
+            "type": "object",
+            "properties": {
+              "floorType": {
+                "description": "Finish floor type (\"Family: Type\", name or id), e.g. \"Piso porcelanato 10 mm\".",
+                "type": "string"
+              },
+              "heightOffset": {
+                "description": "Top of the finish above the room's level in mm. Default 0 (level = finished floor).",
+                "type": "number",
+                "x-unit": "mm",
+                "default": 0
+              },
+              "boundaryOffset": {
+                "description": "Grow (+) or shrink (-) the room outline in mm. Default 0.",
+                "type": "number",
+                "x-unit": "mm",
+                "default": 0
+              }
+            },
+            "required": [
+              "floorType"
+            ],
+            "additionalProperties": false
+          },
+          "ceiling": {
+            "description": "Ceiling (forro) over the room's inner outline.",
+            "type": "object",
+            "properties": {
+              "ceilingType": {
+                "description": "Ceiling type (\"Family: Type\", name or id), e.g. \"Forro de gesso 12,5 mm\".",
+                "type": "string"
+              },
+              "heightAboveLevel": {
+                "description": "Ceiling height above the room's level in mm, e.g. 2600.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "boundaryOffset": {
+                "description": "Grow (+) or shrink (-) the room outline in mm, e.g. -10 for a shadow gap. Default 0.",
+                "type": "number",
+                "x-unit": "mm",
+                "default": 0
+              }
+            },
+            "required": [
+              "ceilingType",
+              "heightAboveLevel"
+            ],
+            "additionalProperties": false
+          },
+          "baseboard": {
+            "description": "Baseboard (rodapé) along the perimeter, interrupted at doors.",
+            "type": "object",
+            "properties": {
+              "method": {
+                "description": "line_family (exact per room, cut at openings) or wall_sweep (whole wall, cut by inserts).",
+                "type": "string",
+                "enum": [
+                  "line_family",
+                  "wall_sweep"
+                ]
+              },
+              "type": {
+                "description": "Line-based family type, or wall sweep type for wall_sweep.",
+                "type": "string"
+              },
+              "elevation": {
+                "description": "Height above the room's level in mm. Default: 0 for the baseboard, the ceiling height for the trim.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "reverseDirection": {
+                "description": "line_family: flip which side the profile sticks out. Default false.",
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "required": [
+              "method",
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          "ceilingTrim": {
+            "description": "Ceiling trim (tabica) along the perimeter at the ceiling line.",
+            "type": "object",
+            "properties": {
+              "method": {
+                "description": "line_family (exact per room, cut at openings) or wall_sweep (whole wall, cut by inserts).",
+                "type": "string",
+                "enum": [
+                  "line_family",
+                  "wall_sweep"
+                ]
+              },
+              "type": {
+                "description": "Line-based family type, or wall sweep type for wall_sweep.",
+                "type": "string"
+              },
+              "elevation": {
+                "description": "Height above the room's level in mm. Default: 0 for the baseboard, the ceiling height for the trim.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "reverseDirection": {
+                "description": "line_family: flip which side the profile sticks out. Default false.",
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "required": [
+              "method",
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          "existing": {
+            "description": "skip (default): rooms that already have a floor / ceiling over them do not get another. create: add anyway.",
+            "type": "string",
+            "enum": [
+              "skip",
+              "create"
+            ],
+            "default": "skip"
+          }
+        },
         "additionalProperties": false
       }
     },
