@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "a446de19150c45cd84d3ef23f512b070ba9d440f2d0096dbb9d9dd21cb6001a2",
+  "capabilityHash": "6949e4c14d20b4994c329953da65c4f3a65f381e1b7b2561b9f8c5dcec83270f",
   "tools": [
     {
       "name": "activate_view",
@@ -34,6 +34,389 @@
         },
         "required": [
           "view"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "clear_graphic_overrides",
+      "description": "Clear graphic overrides in a view: of given elements, of given categories (any language), or of every element in the view (all) and optionally every category (allCategories); optionally unhide them too. View filter overrides are not touched (set_view_filter). Returns how many elements/categories were reset. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View (name or id).",
+            "type": "string"
+          },
+          "elementIds": {
+            "description": "Elements whose overrides are cleared.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "categories": {
+            "description": "Categories whose overrides are cleared, in any language.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "all": {
+            "description": "Clear every element override in the view (and every category override when allCategories). Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "allCategories": {
+            "description": "With all: also clear every category override of the view (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "unhide": {
+            "description": "Also unhide the given elements/categories (default false).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "view"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "color_elements_by_parameter",
+      "description": "Colour the elements of some categories visible in a view by the value of a parameter (instance, then type): distinct palette colours per value, an explicit colorMap {value: \"#RRGGBB\"}, or a gradient for numeric values (sorted numerically). Colours surfaces (solid fill), lines, or both, merging with existing overrides. Returns the legend: value, colour, element count. Undo: Ctrl+Z or clear_graphic_overrides.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View (name or id) where the colours are applied.",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Categories to colour, in any language (OST_Walls, Walls, Paredes).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parameter": {
+            "description": "Parameter whose value picks the colour: {builtIn} | {guid} | {name}; read on the instance, then on its type.",
+            "type": "object",
+            "properties": {
+              "guid": {
+                "description": "Shared parameter GUID. Wins over builtIn and name.",
+                "type": "string"
+              },
+              "builtIn": {
+                "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                "type": "string"
+              },
+              "name": {
+                "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "colorMap": {
+            "description": "Explicit colours by value, e.g. {\"Demolir\": \"#FF0000\"} (value as Revit displays it, or the wire value; case and accents ignored). Other values get palette colours unless onlyMapped.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "gradient": {
+            "description": "For numeric parameters: interpolate from/to colours between the smallest and largest value instead of a palette.",
+            "type": "object",
+            "properties": {
+              "from": {
+                "description": "Colour of the smallest value (\"#RRGGBB\").",
+                "type": "string"
+              },
+              "to": {
+                "description": "Colour of the largest value (\"#RRGGBB\").",
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": false
+          },
+          "onlyMapped": {
+            "description": "Colour only the values listed in colorMap (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "noValueColor": {
+            "description": "Colour for elements without the parameter or with an empty value. Default: leave them as they are.",
+            "type": "string"
+          },
+          "target": {
+            "description": "What to colour: surface (default, solid foreground fill of surfaces and cuts), lines, or both.",
+            "type": "string",
+            "enum": [
+              "surface",
+              "lines",
+              "both"
+            ],
+            "default": "surface"
+          },
+          "elementIds": {
+            "description": "Only these elements (ids) among those visible in the view.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "view",
+          "categories",
+          "parameter"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_schedule",
+      "description": "Create a schedule (regular, material takeoff, key, sheet list or view list) for a category in any language, with fields in order (heading, hidden, width mm, alignment, totals), filters (eq, neq, gt/gte/lt/lte in mm/m2/m3/deg, contains, begins_with, ends_with, has_value...), sorting/grouping (header, footer, blank line), itemization and grand total. Fields are resolved before anything is created; returns the definition read back. Undo: Ctrl+Z or delete the returned schedule id.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Schedule name, unique among schedules (e.g. \"Tabela de Portas\").",
+            "type": "string"
+          },
+          "kind": {
+            "description": "regular (default), material_takeoff, key, sheet_list or view_list.",
+            "type": "string",
+            "enum": [
+              "regular",
+              "material_takeoff",
+              "key",
+              "sheet_list",
+              "view_list"
+            ],
+            "default": "regular"
+          },
+          "category": {
+            "description": "Category in any language (OST_Doors, Doors, Portas). Required except for sheet_list/view_list. \"OST_MultiCategory\" for a multi-category schedule.",
+            "type": "string"
+          },
+          "fields": {
+            "description": "Fields in column order. Reference them language-neutrally with builtIn/guid when possible (see get_schedulable_fields).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "parameter": {
+                  "description": "Field to add: {builtIn} (e.g. ROOM_AREA, language-neutral), {guid} (shared parameter) or {name} as listed by get_schedulable_fields (\"Count\", \"Área\", ...).",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "fieldType": {
+                  "description": "Disambiguates fields with the same parameter: Instance, ElementType (alias: type), Count, Room, FromRoom, ToRoom, Material, MaterialQuantity, ProjectInfo... (see get_schedulable_fields).",
+                  "type": "string"
+                },
+                "heading": {
+                  "description": "Column heading (default: the parameter name).",
+                  "type": "string"
+                },
+                "hidden": {
+                  "description": "Hide the column (it still works for filters and sorting). Default false.",
+                  "type": "boolean"
+                },
+                "widthMm": {
+                  "description": "Column width on the sheet (paper size). Unit: mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "align": {
+                  "description": "Horizontal alignment of the column.",
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ]
+                },
+                "total": {
+                  "description": "Show totals for this column (only numeric fields that can be totalled). Default false.",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "parameter"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "filters": {
+            "description": "Filters (AND, at most 8) over fields listed in fields[] (hidden ones included).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "description": "Field already in the schedule (it may be hidden): {name: column heading or field name} | {builtIn} | {guid}.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "op": {
+                  "description": "Operator. Numbers are compared in wire units (mm, m2, m3, deg).",
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "neq",
+                    "gt",
+                    "gte",
+                    "lt",
+                    "lte",
+                    "contains",
+                    "not_contains",
+                    "begins_with",
+                    "not_begins_with",
+                    "ends_with",
+                    "not_ends_with",
+                    "has_value",
+                    "has_no_value"
+                  ]
+                },
+                "value": {
+                  "description": "Value to compare with (not used by has_value/has_no_value). Number in wire units, text, true/false, or a level/phase name for element fields."
+                }
+              },
+              "required": [
+                "field",
+                "op"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "sort": {
+            "description": "Sorting/grouping levels, in order, over fields listed in fields[].",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "description": "Field already in the schedule: {name: column heading or field name} | {builtIn} | {guid}.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "order": {
+                  "description": "asc (default) or desc.",
+                  "type": "string",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "default": "asc"
+                },
+                "header": {
+                  "description": "Show a group header row. Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "footer": {
+                  "description": "Show a group footer (title, count and totals). Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "blankLine": {
+                  "description": "Blank line after each group. Default false.",
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "itemized": {
+            "description": "Itemize every instance (default true). false groups identical rows (needs sort).",
+            "type": "boolean",
+            "default": true
+          },
+          "grandTotal": {
+            "description": "Show a grand total row (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "skipUnknownFields": {
+            "description": "false (default): an unknown or ambiguous field fails the call and nothing is created. true: such fields are skipped and listed in skippedFields.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "name"
         ],
         "additionalProperties": false
       }
@@ -128,6 +511,364 @@
       }
     },
     {
+      "name": "create_text_note",
+      "description": "Create text notes in a view or sheet (batch): text, position in the view plane in mm (plans: model X/Y; sections/elevations: horizontal coordinate and elevation), text type by name, wrap width in paper mm, rotation in degrees and alignment. One transaction, all or nothing. Returns the note ids and positions read back. Undo: Ctrl+Z or delete the returned ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View or sheet to place the notes in (name or id).",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Notes to create, up to 200.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "description": "Text of the note (\\n for line breaks).",
+                  "type": "string"
+                },
+                "position": {
+                  "description": "Insertion point in the view plane (mm). Plans: model X/Y; sections/elevations: horizontal coordinate and elevation; sheets/drafting: sheet/view coordinates.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "textType": {
+                  "description": "Text type name or id (e.g. \"2.5mm Arial\"). Default: the document's default text type.",
+                  "type": "string"
+                },
+                "widthMm": {
+                  "description": "Wrap width on paper (as printed). Omit for a single line that grows with the text. Unit: mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "rotationDeg": {
+                  "description": "Rotation in the view plane, counter-clockwise (default 0). Unit: deg.",
+                  "type": "number",
+                  "x-unit": "deg",
+                  "default": 0
+                },
+                "hAlign": {
+                  "description": "Horizontal alignment (default left).",
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ],
+                  "default": "left"
+                },
+                "vAlign": {
+                  "description": "Vertical alignment relative to the insertion point (default top).",
+                  "type": "string",
+                  "enum": [
+                    "top",
+                    "middle",
+                    "bottom"
+                  ],
+                  "default": "top"
+                }
+              },
+              "required": [
+                "text",
+                "position"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "view",
+          "notes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_view_filter",
+      "description": "Create a rule-based view filter: categories in any language and parameter rules (builtIn/guid/name; eq, neq, gt/gte/lt/lte with numbers in mm/m2/m3/deg, contains, begins_with, ends_with and negations, has_value/has_no_value) combined with and/or. The parameter must be common to all the categories. ifExists error/reuse/update. Optionally applies it to a view or template with visibility and overrides. Undo: Ctrl+Z or delete the filter.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Filter name, unique among filters.",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Categories the filter applies to, in any language (OST_Walls, Walls, Paredes).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rules": {
+            "description": "Parameter rules (up to 20). Omit for a category-only filter.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "parameter": {
+                  "description": "Parameter common to every category of the filter: {builtIn} (language-neutral), {guid} (shared) or {name} as Revit shows it.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "op": {
+                  "description": "Operator. Numbers are in wire units (mm, m2, m3, deg); text compares ignore case.",
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "neq",
+                    "gt",
+                    "gte",
+                    "lt",
+                    "lte",
+                    "contains",
+                    "not_contains",
+                    "begins_with",
+                    "not_begins_with",
+                    "ends_with",
+                    "not_ends_with",
+                    "has_value",
+                    "has_no_value"
+                  ]
+                },
+                "value": {
+                  "description": "Value to compare with (not for has_value/has_no_value): number in wire units, text, true/false, or an element name/id for element parameters (level, material, phase)."
+                }
+              },
+              "required": [
+                "parameter",
+                "op"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "logic": {
+            "description": "and (default): every rule must match. or: any rule.",
+            "type": "string",
+            "enum": [
+              "and",
+              "or"
+            ],
+            "default": "and"
+          },
+          "ifExists": {
+            "description": "When a filter with this name exists: error (default), reuse (leave it as is) or update (replace its categories and rules).",
+            "type": "string",
+            "enum": [
+              "error",
+              "reuse",
+              "update"
+            ],
+            "default": "error"
+          },
+          "applyTo": {
+            "description": "Optionally apply the filter right away to a view or template, with visibility and overrides.",
+            "type": "object",
+            "properties": {
+              "view": {
+                "description": "View (name or id) to apply the filter to. Give view or template.",
+                "type": "string"
+              },
+              "template": {
+                "description": "View template (name or id) to apply the filter to.",
+                "type": "string"
+              },
+              "visible": {
+                "description": "Show (true) or hide (false) the filtered elements.",
+                "type": "boolean"
+              },
+              "overrides": {
+                "description": "Graphic overrides for the filtered elements.",
+                "type": "object",
+                "properties": {
+                  "projectionLine": {
+                    "description": "Projection (surface) lines.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "weight": {
+                        "description": "Line weight (pen number) 1-16.",
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 16
+                      },
+                      "pattern": {
+                        "description": "Line pattern name or id (\"Solid\" for continuous).",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "cutLine": {
+                    "description": "Cut lines.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "weight": {
+                        "description": "Line weight (pen number) 1-16.",
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 16
+                      },
+                      "pattern": {
+                        "description": "Line pattern name or id (\"Solid\" for continuous).",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "surfaceForeground": {
+                    "description": "Surface foreground pattern.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "pattern": {
+                        "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                        "type": "string"
+                      },
+                      "visible": {
+                        "description": "Show or hide this pattern.",
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "surfaceBackground": {
+                    "description": "Surface background pattern.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "pattern": {
+                        "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                        "type": "string"
+                      },
+                      "visible": {
+                        "description": "Show or hide this pattern.",
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "cutForeground": {
+                    "description": "Cut foreground pattern.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "pattern": {
+                        "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                        "type": "string"
+                      },
+                      "visible": {
+                        "description": "Show or hide this pattern.",
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "cutBackground": {
+                    "description": "Cut background pattern.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "pattern": {
+                        "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                        "type": "string"
+                      },
+                      "visible": {
+                        "description": "Show or hide this pattern.",
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "transparency": {
+                    "description": "Surface transparency, 0 (opaque) to 100.",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "halftone": {
+                    "description": "Draw in halftone.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "categories"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "delete_saved_selection",
       "description": "Delete saved selections (selection filters) by name or id. Only the saved selection is removed, never its elements. Undo with Ctrl+Z right after. Supports dryRun.",
       "kind": "write",
@@ -149,6 +890,124 @@
         },
         "required": [
           "names"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "dimension_elements",
+      "description": "Create an aligned chain dimension between parallel walls (exterior/interior face), grids, reference planes or family instance references (center, left/right, front/back) in a plan, section or elevation. The dimension line is computed perpendicular to the targets (or given in the view plane in mm). Returns the dimension id and each segment value in mm, read back. Not for 3D views. Undo: Ctrl+Z or delete the returned id.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "Plan, section or elevation view (name or id). Not 3D views: Revit accepts the call there but draws nothing.",
+            "type": "string"
+          },
+          "targets": {
+            "description": "2 to 50 parallel elements to dimension, in any order (a chain dimension with one segment per gap).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "element": {
+                  "description": "Wall, grid, reference plane or family instance id.",
+                  "type": "integer"
+                },
+                "side": {
+                  "description": "Which reference: walls exterior (default) | interior face; family instances centerLeftRight (default) | centerFrontBack | left | right | front | back. Ignored for grids and reference planes.",
+                  "type": "string",
+                  "enum": [
+                    "exterior",
+                    "interior",
+                    "centerLeftRight",
+                    "centerFrontBack",
+                    "left",
+                    "right",
+                    "front",
+                    "back"
+                  ]
+                }
+              },
+              "required": [
+                "element"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "line": {
+            "description": "Dimension line in the view plane. Default: perpendicular to the targets, at offsetMm from the first target's midpoint.",
+            "type": "object",
+            "properties": {
+              "start": {
+                "description": "Start of the dimension line in the view plane (mm).",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              },
+              "end": {
+                "description": "End of the dimension line in the view plane (mm).",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "start",
+              "end"
+            ],
+            "additionalProperties": false
+          },
+          "offsetMm": {
+            "description": "Default line only: distance along the targets' direction from the first target's midpoint (model mm, default 0).",
+            "type": "number",
+            "x-unit": "mm",
+            "default": 0
+          },
+          "dimensionType": {
+            "description": "Linear dimension type name or id. Default: the document's default.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view",
+          "targets"
         ],
         "additionalProperties": false
       }
@@ -194,6 +1053,70 @@
         },
         "required": [
           "steps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "export_schedule",
+      "description": "Export schedules to CSV (UTF-8 with BOM, delimiter \";\" by default for Excel pt-BR) or tab-separated TXT, with the visible columns and cell text exactly as Revit shows it. Files go to Documents\\RevitMCP\\schedules by default (or another allowed folder; others fail with PATH_NOT_ALLOWED), named after the schedule. Returns each path and row count. The model is not changed.",
+      "kind": "read",
+      "risk": "low",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedules": {
+            "description": "Schedules to export, by name or id (up to 50).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "folder": {
+            "description": "Output folder: absolute inside an allowed folder, or relative to Documents\\RevitMCP. Default Documents\\RevitMCP\\schedules.",
+            "type": "string"
+          },
+          "format": {
+            "description": "csv (default, delimiter applies) or txt (tab-separated).",
+            "type": "string",
+            "enum": [
+              "csv",
+              "txt"
+            ],
+            "default": "csv"
+          },
+          "delimiter": {
+            "description": "CSV delimiter (default \";\", which Excel in pt-BR opens directly; numbers keep the project's decimal comma).",
+            "type": "string",
+            "default": ";"
+          },
+          "includeHeaders": {
+            "description": "Write the column headings as the first line (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "includeTitle": {
+            "description": "Write the schedule title as the very first line (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "skipBlankRows": {
+            "description": "Leave out blank separator rows (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "overwrite": {
+            "description": "Overwrite existing files (default true). false fails if a file exists.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "schedules"
         ],
         "additionalProperties": false
       }
@@ -999,6 +1922,129 @@
       }
     },
     {
+      "name": "get_schedulable_fields",
+      "description": "List the fields that can be added to a schedule: name (Revit's language), fieldType (Instance, ElementType, Count, Room, Material...), parameterId, builtIn and guid, so create_schedule and modify_schedule_fields can reference them language-neutrally. Works for an existing schedule or for a category + kind not scheduled yet (probed with a temporary schedule that is always rolled back; nothing is changed). Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Existing schedule (name or id). Give this, or category (+ kind) for a schedule not created yet.",
+            "type": "string"
+          },
+          "category": {
+            "description": "Category of a schedule not created yet, in any language (OST_Rooms, Rooms, Ambientes). Not needed for sheet_list/view_list.",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Kind of the schedule to probe when using category (default regular).",
+            "type": "string",
+            "enum": [
+              "regular",
+              "material_takeoff",
+              "key",
+              "sheet_list",
+              "view_list"
+            ],
+            "default": "regular"
+          },
+          "fieldTypes": {
+            "description": "Only these field types, e.g. [\"Instance\", \"ElementType\", \"Room\", \"Material\"].",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nameContains": {
+            "description": "Only fields whose name contains this text (case and accents ignored).",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Page size, 1-2000 (default 500).",
+            "type": "integer",
+            "default": 500
+          },
+          "offset": {
+            "description": "Fields to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_schedule_data",
+      "description": "Read what a schedule shows: the visible columns and the rows as Revit renders them (cell text with the project's formatting and units, calculated values included; hidden fields are left out). Group headers/footers and the grand total come as ordinary rows, in table order. Paged with limit/offset over the body rows; use export_schedule for a CSV file. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Schedule name or id (see list_schedules).",
+            "type": "string"
+          },
+          "includeHeadings": {
+            "description": "Also return the heading rows (column headings and heading groups) as Revit draws them. Default false: columns[] already names each column.",
+            "type": "boolean",
+            "default": false
+          },
+          "skipBlankRows": {
+            "description": "Leave out blank separator rows (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "description": "Rows per page, 1-2000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Rows to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "required": [
+          "schedule"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_schedule_definition",
+      "description": "Full definition of a schedule: kind, category, fields in order (name, heading, fieldType, builtIn/guid, hidden, calculated/combined, width in mm, alignment, totals), filters (op and value in wire units), sorting/grouping (order, header, footer, blank line), itemization, grand totals and title/headers/grid-line flags. Formulas of calculated fields are not readable through the Revit API. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Schedule name or id (see list_schedules).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_session_changes",
       "description": "What changed in the target document during this session: net created / modified / deleted elements (id, UniqueId, name, category, transaction names, by MCP or by the user), the last created element still in the model, and lastSeq to ask again for only newer changes (sinceSeq). Tracking starts at the first call of this tool in the Revit session (earlier changes are unknown: the first call returns trackingStarted=true). Undo/redo is included. Filter by time, categories or onlyByMcp; paged. operation=reset starts a new baseline. Does not change the model.",
       "kind": "read",
@@ -1218,6 +2264,59 @@
       }
     },
     {
+      "name": "list_schedules",
+      "description": "List the schedules of the document (regular, material takeoff, key, sheet/view lists, note blocks) with id, name, kind, category, field count and the sheets they are placed on. Internal title-block revision schedules and schedule templates are excluded. Filter by kind, category (any language) or name; paged with limit/offset. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "Only schedules of this kind.",
+            "type": "string",
+            "enum": [
+              "regular",
+              "material_takeoff",
+              "key",
+              "sheet_list",
+              "view_list",
+              "revision",
+              "note_block",
+              "keynote_legend"
+            ]
+          },
+          "category": {
+            "description": "Only schedules of this category, in any language (OST_Doors, Doors, Portas).",
+            "type": "string"
+          },
+          "nameContains": {
+            "description": "Only schedules whose name contains this text (case and accents ignored).",
+            "type": "string"
+          },
+          "includePlacement": {
+            "description": "List the sheets each schedule is placed on (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "description": "Page size, 1-1000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Schedules to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "list_spatial_elements",
       "description": "List rooms, areas or MEP spaces with number, name, level, phase, area scheme, area (m2), perimeter (mm), volume (m3; 0 unless volume computation is on) and status: placed, notPlaced (deleted from plan but still in schedules), notEnclosed (placed but not bounded, area 0) or redundant (placed in a region another one already occupies). Filter by level, phase, area scheme, status, name/number text. Ordered by level then number, paged with total. Read-only.",
       "kind": "read",
@@ -1401,6 +2500,107 @@
       }
     },
     {
+      "name": "modify_schedule_fields",
+      "description": "Edit the columns of a schedule with ordered operations: add a schedulable field (builtIn/guid/name, optional index), remove, move to an index, or update heading, hidden, width (mm), alignment and totals. All operations succeed or none is applied; unknown fields fail with suggestions instead of being ignored. Calculated fields cannot be created via the API. Returns the fields read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Schedule name or id.",
+            "type": "string"
+          },
+          "operations": {
+            "description": "Operations applied in order, all or nothing (up to 100).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "description": "add (a schedulable field), remove, move (to index) or update (heading, hidden, width, alignment, totals).",
+                  "type": "string",
+                  "enum": [
+                    "add",
+                    "remove",
+                    "move",
+                    "update"
+                  ]
+                },
+                "field": {
+                  "description": "add: {builtIn}/{guid}/{name} of a schedulable field (see get_schedulable_fields). Others: {name: column heading or field name} | {builtIn} | {guid} of a field in the schedule.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "fieldType": {
+                  "description": "add only: disambiguates fields with the same parameter (Instance, ElementType/type, Room, Material...).",
+                  "type": "string"
+                },
+                "index": {
+                  "description": "add/move: 0-based position among all fields (hidden included). add without index appends.",
+                  "type": "integer"
+                },
+                "heading": {
+                  "description": "New column heading.",
+                  "type": "string"
+                },
+                "hidden": {
+                  "description": "Hide or show the column.",
+                  "type": "boolean"
+                },
+                "widthMm": {
+                  "description": "Column width on the sheet (paper size). Unit: mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "align": {
+                  "description": "Horizontal alignment.",
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ]
+                },
+                "total": {
+                  "description": "Show totals for the column (numeric fields only).",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "op",
+                "field"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "schedule",
+          "operations"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "save_selection",
       "description": "Save a named selection in the model (the same as Manage > Save Selection, synchronized to central with the model): the given element ids, or the current UI selection. With overwrite=true an existing saved selection of the same name gets the new elements. Returns its id and the element count read back. Undo with Ctrl+Z or delete_saved_selection. Supports dryRun.",
       "kind": "write",
@@ -1528,6 +2728,187 @@
       }
     },
     {
+      "name": "set_graphic_overrides",
+      "description": "Override graphics of elements and/or categories in one view: projection/cut lines (colour #RRGGBB, weight 1-16, pattern), surface/cut foreground and background patterns (colour, pattern or \"solid\", visible), transparency 0-100, halftone, and hide/unhide. Merges with the existing overrides by default (nothing given is reset). Category overrides fail with VIEW_CONTROLLED_BY_TEMPLATE when the view template controls them. Returns the overrides read back. Undo: Ctrl+Z or clear_graphic_overrides.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View (name or id) where the overrides apply.",
+            "type": "string"
+          },
+          "elementIds": {
+            "description": "Elements to override (ids, up to 5000). Give elementIds and/or categories.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "categories": {
+            "description": "Categories to override in the view, in any language (OST_Walls, Walls, Paredes).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "overrides": {
+            "description": "Overrides to set. Only what is given changes (see merge).",
+            "type": "object",
+            "properties": {
+              "projectionLine": {
+                "description": "Projection (surface) lines.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "weight": {
+                    "description": "Line weight (pen number) 1-16.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  "pattern": {
+                    "description": "Line pattern name or id (\"Solid\" for continuous).",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutLine": {
+                "description": "Cut lines.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "weight": {
+                    "description": "Line weight (pen number) 1-16.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  "pattern": {
+                    "description": "Line pattern name or id (\"Solid\" for continuous).",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "surfaceForeground": {
+                "description": "Surface foreground pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "surfaceBackground": {
+                "description": "Surface background pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutForeground": {
+                "description": "Cut foreground pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutBackground": {
+                "description": "Cut background pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "transparency": {
+                "description": "Surface transparency, 0 (opaque) to 100.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "halftone": {
+                "description": "Draw in halftone.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "merge": {
+            "description": "true (default): keep the current overrides and change only what is given. false: replace them entirely.",
+            "type": "boolean",
+            "default": true
+          },
+          "visible": {
+            "description": "Hide (false) or unhide (true) the elements/categories in the view.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "view"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "set_parameters",
       "description": "Write instance parameter values on 1..500 elements in one transaction (one Ctrl+Z). Reference parameters by guid, builtIn or name; numbers in wire units (mm, m2, m3, deg, %), ElementId parameters by id or name. Every write is read back: values Revit changed (formulas, rounding) come back as 'mismatch'. Atomic by default. Critical parameters (type, level, phase, workset, host) are blocked unless allowCritical. Type parameters are refused here: use set_type_parameters. Undo: Ctrl+Z, or send the returned revert[] back to this tool.",
       "kind": "write",
@@ -1628,6 +3009,181 @@
             "default": false
           }
         },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_schedule_filters_sorting",
+      "description": "Set a schedule's filters (eq, neq, gt/gte/lt/lte with numbers in mm/m2/m3/deg, contains, begins_with, ends_with and negations, has_value/has_no_value; at most 8), sorting/grouping (asc/desc, header, footer, blank line), itemization, grand total, title/header/grid-line visibility and name. mode replace (default) or append. Filters and sorting only use fields already in the schedule (add hidden ones with modify_schedule_fields). Returns the definition read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Schedule name or id.",
+            "type": "string"
+          },
+          "filters": {
+            "description": "Filters (AND, at most 8 in total) over fields of the schedule (hidden ones included). Omit to leave filters as they are; [] with mode replace clears them.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "description": "Field already in the schedule (it may be hidden): {name: column heading or field name} | {builtIn} | {guid}.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "op": {
+                  "description": "Operator. Numbers are compared in wire units (mm, m2, m3, deg).",
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "neq",
+                    "gt",
+                    "gte",
+                    "lt",
+                    "lte",
+                    "contains",
+                    "not_contains",
+                    "begins_with",
+                    "not_begins_with",
+                    "ends_with",
+                    "not_ends_with",
+                    "has_value",
+                    "has_no_value"
+                  ]
+                },
+                "value": {
+                  "description": "Value to compare with (not used by has_value/has_no_value). Number in wire units, text, true/false, or a level/phase name for element fields."
+                }
+              },
+              "required": [
+                "field",
+                "op"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "sort": {
+            "description": "Sorting/grouping levels. Omit to leave sorting as it is; [] with mode replace clears it.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "description": "Field already in the schedule: {name: column heading or field name} | {builtIn} | {guid}.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "order": {
+                  "description": "asc (default) or desc.",
+                  "type": "string",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "default": "asc"
+                },
+                "header": {
+                  "description": "Show a group header row. Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "footer": {
+                  "description": "Show a group footer (title, count and totals). Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "blankLine": {
+                  "description": "Blank line after each group. Default false.",
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "mode": {
+            "description": "replace (default): the given lists replace the current ones. append: added after the current ones.",
+            "type": "string",
+            "enum": [
+              "replace",
+              "append"
+            ],
+            "default": "replace"
+          },
+          "itemized": {
+            "description": "Itemize every instance (true) or group identical rows (false).",
+            "type": "boolean"
+          },
+          "grandTotal": {
+            "description": "Show the grand total row.",
+            "type": "boolean"
+          },
+          "appearance": {
+            "description": "Title, headers and grid-line visibility.",
+            "type": "object",
+            "properties": {
+              "showTitle": {
+                "description": "Show the title row.",
+                "type": "boolean"
+              },
+              "showHeaders": {
+                "description": "Show the column headings.",
+                "type": "boolean"
+              },
+              "gridLines": {
+                "description": "Show grid lines in the body.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "newName": {
+            "description": "Rename the schedule (must be unique among schedules).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule"
+        ],
         "additionalProperties": false
       }
     },
@@ -1736,6 +3292,195 @@
       }
     },
     {
+      "name": "set_view_filter",
+      "description": "Apply, update or remove a view filter on a view or a view template, with visibility, enabled state and graphic overrides (line colour/weight/pattern, surface/cut patterns, transparency, halftone). Overrides are merged with the current ones by default. A view whose template controls filters fails with VIEW_CONTROLLED_BY_TEMPLATE: target the template. Returns the overrides read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View (name or id). Give view or template.",
+            "type": "string"
+          },
+          "template": {
+            "description": "View template (name or id), to change every view that uses it. Give view or template.",
+            "type": "string"
+          },
+          "filter": {
+            "description": "Filter (rule-based or selection) by name or id.",
+            "type": "string"
+          },
+          "operation": {
+            "description": "add (default; updates if already applied), update (must be applied) or remove (from the view; the filter definition is kept).",
+            "type": "string",
+            "enum": [
+              "add",
+              "update",
+              "remove"
+            ],
+            "default": "add"
+          },
+          "visible": {
+            "description": "Show (true) or hide (false) the elements that pass the filter.",
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "Enable or disable the filter in the view without removing it.",
+            "type": "boolean"
+          },
+          "overrides": {
+            "description": "Graphic overrides for the filtered elements.",
+            "type": "object",
+            "properties": {
+              "projectionLine": {
+                "description": "Projection (surface) lines.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "weight": {
+                    "description": "Line weight (pen number) 1-16.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  "pattern": {
+                    "description": "Line pattern name or id (\"Solid\" for continuous).",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutLine": {
+                "description": "Cut lines.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "weight": {
+                    "description": "Line weight (pen number) 1-16.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  "pattern": {
+                    "description": "Line pattern name or id (\"Solid\" for continuous).",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "surfaceForeground": {
+                "description": "Surface foreground pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "surfaceBackground": {
+                "description": "Surface background pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutForeground": {
+                "description": "Cut foreground pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutBackground": {
+                "description": "Cut background pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "transparency": {
+                "description": "Surface transparency, 0 (opaque) to 100.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "halftone": {
+                "description": "Draw in halftone.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "merge": {
+            "description": "true (default): keep the filter's current overrides and change only what is given. false: replace them.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "filter"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "set_view_temporary_visibility",
       "description": "Control what a view shows, by elements or categories: isolate_temp / hide_temp (Temporary Hide/Isolate, cleared with reset_temp or by closing the view: handy to show the user what a plan will touch), hide / unhide (permanent, only in that view; undo with unhide or Ctrl+Z), show_attached_groups / hide_attached_groups for model groups. Category changes are refused when a view template controls visibility. Temporary operations are skipped in dryRun (only validated). Default view: the active one.",
       "kind": "write",
@@ -1821,6 +3566,179 @@
         },
         "required": [
           "elementIds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "tag_all_in_view",
+      "description": "Tag every element of the given categories (any language) visible in a view, skipping the ones already tagged (local and linked tags detected). Rooms, areas and spaces get their own tags. Optional tag type per category, leader, orientation, elementIds and a limit per call. Elements that cannot be tagged are reported, not fatal. Use dryRun to see the counts first. Returns counts per category and the created tag ids. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View to tag in (name or id): plan, ceiling plan, area plan, section, elevation or locked 3D view.",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Categories to tag, in any language (OST_Doors, Doors, Portas, OST_Rooms...).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tagTypes": {
+            "description": "Tag type per category, e.g. {\"OST_Doors\": \"M_Door Tag: Standard\"}. Categories not listed use their default tag.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "skipTagged": {
+            "description": "Skip elements that already have a tag in this view (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "leader": {
+            "description": "Draw leaders (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "orientation": {
+            "description": "horizontal (default), vertical or model.",
+            "type": "string",
+            "enum": [
+              "horizontal",
+              "vertical",
+              "model"
+            ],
+            "default": "horizontal"
+          },
+          "elementIds": {
+            "description": "Only these elements (ids) among those visible in the view.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "limit": {
+            "description": "Maximum tags to create in this call, 1-5000 (default 1000). Run again to continue.",
+            "type": "integer",
+            "default": 1000
+          }
+        },
+        "required": [
+          "view",
+          "categories"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "tag_elements",
+      "description": "Tag specific elements in a view (any category; rooms, areas and spaces get room/area/space tags; elements of Revit links via \"linkInstanceId:elementId\"). Optional tag type (\"Family: Type\"), leader, orientation and placement in the view plane (mm) or offset. Skips already-tagged elements by default. One transaction; all or nothing unless continueOnError. Returns created tag ids. Undo: Ctrl+Z or delete the returned ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View to tag in (name or id): plan, ceiling plan, section, elevation or locked 3D view.",
+            "type": "string"
+          },
+          "items": {
+            "description": "Elements to tag, up to 500.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "element": {
+                  "description": "Element to tag: id, UniqueId, or \"linkInstanceId:elementId\" for an element inside a Revit link.",
+                  "type": "string"
+                },
+                "tagType": {
+                  "description": "Tag type as \"Family: Type\", type name or id. Omit for the category's default tag.",
+                  "type": "string"
+                },
+                "leader": {
+                  "description": "Draw a leader (default false).",
+                  "type": "boolean",
+                  "default": false
+                },
+                "orientation": {
+                  "description": "horizontal (default), vertical or model (follows the element).",
+                  "type": "string",
+                  "enum": [
+                    "horizontal",
+                    "vertical",
+                    "model"
+                  ],
+                  "default": "horizontal"
+                },
+                "point": {
+                  "description": "Where to put the tag, in the view plane (mm). Default: the element's location point, curve middle or bounding-box centre.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "offsetX": {
+                  "description": "Shift from the default point along the view's horizontal direction (model mm).",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 0
+                },
+                "offsetY": {
+                  "description": "Shift from the default point along the view's vertical direction (model mm).",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 0
+                }
+              },
+              "required": [
+                "element"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "skipTagged": {
+            "description": "Skip elements that already have a tag in this view (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back every tag of the call. true: failed items are listed in failed[] and the rest is kept.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "view",
+          "items"
         ],
         "additionalProperties": false
       }
