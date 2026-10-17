@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "af9ccaa5480f580da051f15ffbe20a5000b7de9a0e5e7cec20a7cb92ae1f533c",
+  "capabilityHash": "9aecd2692d7327b9e2cbbe0918c90f01c2b22e0723d7e496ae2385e73cdd9aca",
   "tools": [
     {
       "name": "activate_view",
@@ -2058,6 +2058,74 @@
       }
     },
     {
+      "name": "create_assembly_views",
+      "description": "Create the views of an assembly (conjunto): 3D orthographic, elevations (front/back/left/right/top/bottom), detail sections, part list, material takeoff and a single-category schedule, optionally with a scale and view template, and optionally an assembly sheet with them placed in a row. These views only show the assembly's members. Returns the ids and names. Undo: Ctrl+Z or delete the views.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "assemblyId": {
+            "description": "Assembly instance id (from manage_assembly or find_elements).",
+            "type": "integer"
+          },
+          "views": {
+            "description": "What to create: 3d (orthographic), elevations front/back/left/right/top/bottom, detail sections sectionA/sectionB/horizontal, partList (parts schedule), materialTakeoff, schedule (single category, see scheduleCategory). Default: 3d, front, top, partList.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "3d",
+                "front",
+                "back",
+                "left",
+                "right",
+                "top",
+                "bottom",
+                "sectionA",
+                "sectionB",
+                "horizontal",
+                "partList",
+                "materialTakeoff",
+                "schedule"
+              ]
+            }
+          },
+          "scheduleCategory": {
+            "description": "Category of the 'schedule' item (pt-BR or English). Default: the assembly's naming category.",
+            "type": "string"
+          },
+          "scale": {
+            "description": "View scale 1:N for the model views (e.g. 20). Default: Revit's.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "viewTemplate": {
+            "description": "View template (name or id) applied to the model views. Default: none.",
+            "type": "string"
+          },
+          "createSheet": {
+            "description": "Also create an assembly sheet and place the new views and schedules on it in a row. Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "titleBlock": {
+            "description": "Title block type for the sheet (\"Family: Type\", type name or id). Default: the first title block in the project.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assemblyId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "create_callout_view",
       "description": "Create a callout view inside a parent view (plan, section, elevation, detail), framed by a model-XY rectangle in mm (plans) or by elements plus padding mm (any parent; corners are projected through the parent's view transform). kind plan (cropped plan, plan parents) or detail. Optional name, scale (20 = 1:20), detail level, template. The callout's crop is read back. Undo: Ctrl+Z or delete the returned view id.",
       "kind": "write",
@@ -2813,6 +2881,160 @@
       }
     },
     {
+      "name": "create_family_from_template",
+      "description": "Create a loadable family from an installed .rft template (criar família / extrusão travada): a solid extrusion from a centered rectangle (width x depth) or a polygon, with height, width and depth length parameters (pt-BR names by default) and a material parameter. For the rectangle, reference planes are added, the faces are locked to them, labeled dimensions drive width/depth and EQ dimensions keep it centered; height drives the extrusion end. A flex test reports which parameters really move the geometry. Saves to the allowed folders and optionally loads it into the project. dryRun builds and flexes in memory without saving or loading. Undo the load with Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "families",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 300,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Family name (also the .rfa file name).",
+            "type": "string"
+          },
+          "template": {
+            "description": "Family template: a .rft path (allowed folders or Revit's Family Templates folder) or a name searched there (e.g. \"Modelo genérico métrico\", \"Mobiliário métrico\", \"Metric Casework\"). Default: the metric Generic Model template.",
+            "type": "string"
+          },
+          "category": {
+            "description": "Family category (pt-BR or English), if the template allows changing it (Generic Model does), e.g. \"Furniture\" / \"Mobiliário\", \"Casework\". Default: the template's.",
+            "type": "string"
+          },
+          "widthMm": {
+            "description": "Box width along X (rectangle profile, centered on the origin). Required unless polygon is given. Unit: mm.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100000,
+            "x-unit": "mm"
+          },
+          "depthMm": {
+            "description": "Box depth along Y. Required unless polygon is given. Unit: mm.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100000,
+            "x-unit": "mm"
+          },
+          "heightMm": {
+            "description": "Extrusion height from the reference level. Unit: mm.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100000,
+            "x-unit": "mm"
+          },
+          "polygon": {
+            "description": "Closed polygon profile in plan (mm, family origin) instead of the rectangle. Only the height is parametric then.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "description": "X coordinate in mm from the project's internal origin.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "y": {
+                  "description": "Y coordinate in mm from the project's internal origin.",
+                  "type": "number",
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "widthParameter": {
+            "description": "Name of the width length parameter. Default \"Largura\".",
+            "type": "string",
+            "default": "Largura"
+          },
+          "depthParameter": {
+            "description": "Name of the depth length parameter. Default \"Profundidade\".",
+            "type": "string",
+            "default": "Profundidade"
+          },
+          "heightParameter": {
+            "description": "Name of the height length parameter. Default \"Altura\".",
+            "type": "string",
+            "default": "Altura"
+          },
+          "materialParameter": {
+            "description": "Name of a material parameter bound to the extrusion. Default \"Material\"; empty string = none.",
+            "type": "string",
+            "default": "Material"
+          },
+          "instanceParameters": {
+            "description": "Make the parameters instance parameters (default false: type parameters).",
+            "type": "boolean",
+            "default": false
+          },
+          "types": {
+            "description": "Family types to create with their sizes. Default: one type named \"<W>x<D>x<H>\".",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "description": "Type name (e.g. \"600x550x720\").",
+                  "type": "string"
+                },
+                "widthMm": {
+                  "description": "Width of this type. Default: the family's widthMm.",
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 100000,
+                  "x-unit": "mm"
+                },
+                "depthMm": {
+                  "description": "Depth of this type. Default: the family's depthMm.",
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 100000,
+                  "x-unit": "mm"
+                },
+                "heightMm": {
+                  "description": "Height of this type. Default: the family's heightMm.",
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 100000,
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "outputPath": {
+            "description": "Where to save the .rfa: absolute, or relative to Documents\\RevitMCP\\families. Default: families\\<name>.rfa.",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Overwrite an existing file and reload a family of the same name already in the project. Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "loadIntoProject": {
+            "description": "Load the new family into the target document. Default true.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "name",
+          "heightMm"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "create_filled_region",
       "description": "Create filled regions (região preenchida) in a 2D view from closed outlines in the view plane (mm): first loop = boundary, further loops = holes; or a rectangle. Filled region type and boundary line style by name (pt-BR or English); unknown names fail instead of falling back. Self-intersecting or open outlines are refused. Returns ids and areas (m², model scale). Undo: Ctrl+Z or delete the ids.",
       "kind": "write",
@@ -2919,6 +3141,116 @@
         },
         "required": [
           "regions"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_finish_material",
+      "description": "Create (or update with ifExists:update) a finish material in one step: kind mdf (texture image as the render appearance diffuse with its real-world size in mm and rotation), tile (revestimento: optional image plus a model surface pattern of the tile grid, spacing = tile + grout joint) or paint (solid color). Sets the shading color (default: the image's average color), class and patterns. The image must be in the allowed folders (Documents\\RevitMCP\\textures by default); its absolute path is stored, so other machines need the same path. Values are read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "materials",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Material name (the office's naming rule, e.g. \"MDF Freijó Puro\", \"Porcelanato Cinza 60x60\", \"Pintura Branco Neve\").",
+            "type": "string"
+          },
+          "kind": {
+            "description": "mdf: wood/MDF board from a texture image. tile: revestimento (ceramic/porcelain) with a model surface pattern of the tile grid. paint: solid color (tinta).",
+            "type": "string",
+            "enum": [
+              "mdf",
+              "tile",
+              "paint"
+            ]
+          },
+          "image": {
+            "description": "Texture image (PNG/JPG/BMP/TIF): absolute, or relative to Documents\\RevitMCP\\textures; must be in the allowed folders. Needed for mdf; optional for tile; ignored for paint.",
+            "type": "string"
+          },
+          "textureWidthMm": {
+            "description": "Real-world width the image covers. Default: tile = tile width + joint; mdf = 1000. Unit: mm.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100000,
+            "x-unit": "mm"
+          },
+          "textureHeightMm": {
+            "description": "Real-world height the image covers. Default: tile = tile height + joint; otherwise keeps the image's aspect ratio. Unit: mm.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100000,
+            "x-unit": "mm"
+          },
+          "textureRotationDeg": {
+            "description": "Rotation of the texture (e.g. 90 to turn the wood grain). Default 0. Unit: deg.",
+            "type": "number",
+            "minimum": -360,
+            "maximum": 360,
+            "x-unit": "deg",
+            "default": 0
+          },
+          "tileWidthMm": {
+            "description": "tile: tile width (e.g. 600). Unit: mm.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10000,
+            "x-unit": "mm"
+          },
+          "tileHeightMm": {
+            "description": "tile: tile height. Default = tileWidthMm (square tile).",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10000,
+            "x-unit": "mm"
+          },
+          "jointMm": {
+            "description": "tile: grout joint width (rejunte). Default 2. The surface pattern repeats every tile + joint. Unit: mm.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "x-unit": "mm",
+            "default": 2
+          },
+          "color": {
+            "description": "Shading color \"#RRGGBB\" (color in shaded views; for paint also the render color). Default: the image's average color; required for paint.",
+            "type": "string"
+          },
+          "materialClass": {
+            "description": "Material class. Default by kind: mdf \"Madeira\", tile \"Cerâmica\", paint \"Pintura\".",
+            "type": "string"
+          },
+          "surfacePattern": {
+            "description": "Surface foreground pattern (name/id, \"none\"). Default: tile = generated tile-grid model pattern; mdf/paint = none.",
+            "type": "string"
+          },
+          "surfacePatternColor": {
+            "description": "Surface pattern color \"#RRGGBB\". Default: grey #808080 for the tile grid.",
+            "type": "string"
+          },
+          "cutPattern": {
+            "description": "Cut foreground pattern (name/id, \"solid\", \"none\"). Default: unchanged.",
+            "type": "string"
+          },
+          "ifExists": {
+            "description": "When a material with this name exists: error (default) or update it in place (affects every element using it).",
+            "type": "string",
+            "enum": [
+              "error",
+              "update"
+            ],
+            "default": "error"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
         ],
         "additionalProperties": false
       }
@@ -3118,6 +3450,69 @@
         },
         "required": [
           "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_locked_alignment",
+      "description": "Lock two references together (alinhar com cadeado), e.g. the side of a millwork cabinet to a wall's interior face, or a face to a reference plane, so they move together. References: reference planes, levels, grids, wall exterior/interior, family instance left/right/front/back/top/bottom/centers, or the largest planar face facing +x/-x/+y/-y/+z/-z. Revit only locks references that are already parallel and coincident: when they are apart the tool reports the gap in mm (move the element first, e.g. transform_elements). Undo: Ctrl+Z or delete the alignment.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "Plan, section or elevation where both references are seen edge-on (name or id).",
+            "type": "string"
+          },
+          "reference1": {
+            "description": "The reference that stays (e.g. a wall's interior face or a reference plane).",
+            "type": "object",
+            "properties": {
+              "elementId": {
+                "description": "Element that owns the reference.",
+                "type": "integer"
+              },
+              "reference": {
+                "description": "Which reference: auto (reference plane / level / grid), exterior / interior (walls), left / right / front / back / top / bottom / centerLeftRight / centerFrontBack / centerElevation (family instances), face+x / face-x / face+y / face-y / face+z / face-z (largest planar face pointing that way).",
+                "type": "string",
+                "default": "auto"
+              }
+            },
+            "required": [
+              "elementId"
+            ],
+            "additionalProperties": false
+          },
+          "reference2": {
+            "description": "The reference locked to it (e.g. the side of a cabinet).",
+            "type": "object",
+            "properties": {
+              "elementId": {
+                "description": "Element that owns the reference.",
+                "type": "integer"
+              },
+              "reference": {
+                "description": "Which reference: auto (reference plane / level / grid), exterior / interior (walls), left / right / front / back / top / bottom / centerLeftRight / centerFrontBack / centerElevation (family instances), face+x / face-x / face+y / face-y / face+z / face-z (largest planar face pointing that way).",
+                "type": "string",
+                "default": "auto"
+              }
+            },
+            "required": [
+              "elementId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "view",
+          "reference1",
+          "reference2"
         ],
         "additionalProperties": false
       }
@@ -5275,6 +5670,45 @@
         "required": [
           "name",
           "categories"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_void_cut",
+      "description": "Cut elements with a void family instance (criar vazio de corte: sink or cooktop opening in a countertop, niche in a wall, passage in a millwork panel). The instance must come from a family with an unattached void ('Cut with Voids When Loaded'). Give hostIds, or let it find every element whose bounding box touches the void. operation remove undoes the cuts. Each host reports done / already / not_applicable with the reason. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "editing",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "voidElementId": {
+            "description": "The cutting family instance: a family with an unattached void (e.g. the office's sink/cooktop cut-out family).",
+            "type": "integer"
+          },
+          "hostIds": {
+            "description": "Elements to cut (countertop, wall, floor, millwork piece...). Default: every element whose bounding box touches the void instance.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "operation": {
+            "description": "add (default): the void cuts the hosts. remove: undo those cuts.",
+            "type": "string",
+            "enum": [
+              "add",
+              "remove"
+            ],
+            "default": "add"
+          }
+        },
+        "required": [
+          "voidElementId"
         ],
         "additionalProperties": false
       }
@@ -8348,6 +8782,103 @@
       }
     },
     {
+      "name": "import_image",
+      "description": "Place an image (PNG/JPG/BMP/TIF, or one page of a PDF) on a sheet or a 2D/plan/section view at a position (mm in the view plane; sheets in paper mm) with an anchor and an optional width in mm (proportions kept). The file must be in the allowed folders (Documents\\RevitMCP\\images by default); it is embedded in the model unless link:true. An image type already loaded from the same file is reused. Not for 3D views or schedules. Returns the image instance and type ids and the placed size. Undo: Ctrl+Z or delete the instance.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Image file (PNG, JPG, BMP, TIF or PDF): absolute, or relative to Documents\\RevitMCP\\images; must be in the allowed folders.",
+            "type": "string"
+          },
+          "view": {
+            "description": "Sheet, drafting view, legend, plan, section, elevation or detail view: name or id (not 3D or schedules).",
+            "type": "string"
+          },
+          "position": {
+            "description": "Where the anchor goes, in the view plane (mm). Sheets: paper mm from the sheet origin. Plans: model X/Y. Default: the view's origin (sheets: 0,0).",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "anchor": {
+            "description": "Which point of the image sits on position. Default center.",
+            "type": "string",
+            "enum": [
+              "center",
+              "topLeft",
+              "topRight",
+              "bottomLeft",
+              "bottomRight"
+            ],
+            "default": "center"
+          },
+          "widthMm": {
+            "description": "Image width, proportions kept. On sheets it is paper size; on other views it is model size (like a detail item). Default: Revit's size from the image resolution. Unit: mm.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 1000000,
+            "x-unit": "mm"
+          },
+          "link": {
+            "description": "false (default): the image is embedded in the model. true: linked to the file (breaks if the file moves).",
+            "type": "boolean",
+            "default": false
+          },
+          "pdfPage": {
+            "description": "PDF only: page to import (1-based). Default 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1
+          },
+          "pdfDpi": {
+            "description": "PDF only: rasterization resolution in dpi. Default 150.",
+            "type": "integer",
+            "minimum": 72,
+            "maximum": 600,
+            "default": 150
+          },
+          "background": {
+            "description": "Draw the image behind model elements (background) instead of in front. Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "reuseType": {
+            "description": "Reuse an image type already loaded from the same file (and page) instead of importing it again. Default true.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "path",
+          "view"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "import_parameters_table",
       "description": "Import a CSV table (as written by export_parameters_table and edited in Excel) into parameters. Rows are found by the key column (UniqueId or ElementId); headers name the parameter (\"Width [mm]\", optional {builtIn:X}/{guid:G}); columns starting with '_' are ignored. ALWAYS run it first with dryRun:true (no approval needed): you get a per-cell diff (changed, unchanged, invalid, read-only, missing element/parameter) and nothing is kept. Then run it for real (needs approval): one transaction, read-back, atomic by default. Only reads inside the allowed folders. Undo: Ctrl+Z or send revert[] to set_parameters / set_type_parameters.",
       "kind": "write",
@@ -9465,6 +9996,115 @@
         },
         "required": [
           "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "load_rvt_as_group",
+      "description": "Bring another RVT (e.g. a standard bathroom or kitchen layout) into the project as a model group. Revit's 'Load as Group' command has no API, so the file (allowed folders only) is opened in the background, its model elements are copied (optionally only some categories, moved by an offset in mm) and grouped under groupName; the file is then closed unchanged. Not brought in: views, annotations, levels, grids and attached detail groups; Revit may create levels or types it can't match (reported). dryRun only counts what would be copied. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "families",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 600,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "The .rvt to bring in: absolute, or relative to Documents\\RevitMCP\\models; must be in the allowed folders.",
+            "type": "string"
+          },
+          "groupName": {
+            "description": "Model group type name. Default: the file name (a number is added if taken).",
+            "type": "string"
+          },
+          "offset": {
+            "description": "Move the copied elements by this vector (mm). Default: same coordinates as in the file (internal origin to internal origin).",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "categories": {
+            "description": "Only these model categories (pt-BR or English). Default: every model element that has geometry (no levels, grids, views or annotations).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "manage_assembly",
+      "description": "Assemblies (conjuntos, e.g. a millwork module or a prefab piece): create one from element ids with an optional type name and naming category, add or remove members, rename the assembly type, or disassemble it (members stay). Revit commits the new assembly before it can be named, so create runs as one undo step made of two transactions. Then use create_assembly_views for its views and schedules. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "editing",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "create: new assembly (conjunto) from elementIds. add / remove: members of an existing assembly. rename: the assembly type name. disassemble: dissolve the assembly (members stay in the model).",
+            "type": "string",
+            "enum": [
+              "create",
+              "add",
+              "remove",
+              "rename",
+              "disassemble"
+            ]
+          },
+          "assemblyId": {
+            "description": "Assembly instance id (add, remove, rename, disassemble).",
+            "type": "integer"
+          },
+          "elementIds": {
+            "description": "Elements to group (create) or to add / remove.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "name": {
+            "description": "Assembly type name (create, rename). Must be unique within its naming category. Default on create: Revit's automatic name.",
+            "type": "string"
+          },
+          "namingCategory": {
+            "description": "create: category that names the assembly (pt-BR or English, e.g. \"Casework\" / \"Marcenaria\"); must be the category of one of the members. Default: the first element's category.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation"
         ],
         "additionalProperties": false
       }
@@ -13016,6 +13656,104 @@
         },
         "required": [
           "wallIds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_work_plane",
+      "description": "Set the work plane (plano de trabalho) of a view from a level, a named reference plane, a grid, a planar face of an element (face+z = top, exterior/interior of a wall...) or a free plane (origin mm + normal). It is a property of the view stored in the model, so the view does not need to be active; Revit refuses planes that are perpendicular to the view (e.g. a vertical plane in a plan). Optionally shows the plane. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "editing",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View whose work plane is set (plan, section, elevation or 3D): name or id. It does not need to be the active view.",
+            "type": "string"
+          },
+          "level": {
+            "description": "Use this level (name or id) as the work plane.",
+            "type": "string"
+          },
+          "referencePlane": {
+            "description": "Use this named reference plane (name or id) as the work plane.",
+            "type": "string"
+          },
+          "grid": {
+            "description": "Use this (straight) grid (name or id) as the work plane: a vertical plane through it.",
+            "type": "string"
+          },
+          "elementId": {
+            "description": "Use a planar face of this element (with face).",
+            "type": "integer"
+          },
+          "face": {
+            "description": "With elementId: which face, e.g. face+z (top), face-y, exterior/interior (walls), or a family reference (top, front...).",
+            "type": "string"
+          },
+          "origin": {
+            "description": "Free plane through this point (mm; z default 0), with normal, when no datum fits.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "normal": {
+            "description": "Normal of the free plane, e.g. {dx:0, dy:1, dz:0} for a plane facing north.",
+            "type": "object",
+            "properties": {
+              "dx": {
+                "description": "X component of the direction.",
+                "type": "number"
+              },
+              "dy": {
+                "description": "Y component of the direction.",
+                "type": "number"
+              },
+              "dz": {
+                "description": "Z component of the direction.",
+                "type": "number"
+              }
+            },
+            "required": [
+              "dx",
+              "dy",
+              "dz"
+            ],
+            "additionalProperties": false
+          },
+          "showWorkPlane": {
+            "description": "Also show the work plane grid in the view (Revit's API can show it but not hide it). Default false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "view"
         ],
         "additionalProperties": false
       }
