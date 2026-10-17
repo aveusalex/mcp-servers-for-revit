@@ -106,6 +106,14 @@ namespace revit_mcp_plugin.UI
             Closed += (s, e) => timer.Stop();
         }
 
+        /// <summary>The plan can no longer be decided: disable the buttons for good and say why.</summary>
+        public void MarkClosed(string message)
+        {
+            _decisionSent = true;
+            ApproveButton.IsEnabled = RejectButton.IsEnabled = false;
+            SetStatus(message);
+        }
+
         private void MarkExpired()
         {
             if (_decisionSent) return;

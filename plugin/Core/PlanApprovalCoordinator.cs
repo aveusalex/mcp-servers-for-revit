@@ -91,15 +91,39 @@ namespace revit_mcp_plugin.Core
                     _logger?.Info("Plan {0} {1} by {2}", planId, status, Environment.UserName);
                     window.Close();
                 }
-                else if (code == "PLAN_NOT_PENDING" || code == "PLAN_NOT_FOUND")
+                else if (code == "PLAN_NOT_PENDING" || code == "PLAN_NOT_FOUND" || code == "NOT_DOCUMENT_OWNER" ||
+                         code == "PLAN_EXPIRED")
                 {
-                    window.SetStatus($"Este plano não pode mais ser decidido: {error}");
+                    // Final: this window can't succeed any more, so don't offer the buttons again.
+                    window.MarkClosed(DecisionMessage(code, error));
                 }
                 else
                 {
-                    window.DecisionFailed($"O broker recusou a decisão ({code}): {error}");
+                    window.DecisionFailed(DecisionMessage(code, error));
                 }
             }));
+        }
+
+        /// <summary>The broker answers in English with a stable code; show the person a Portuguese sentence.</summary>
+        private static string DecisionMessage(string code, string error)
+        {
+            switch (code)
+            {
+                case "NOT_DOCUMENT_OWNER":
+                    return "Este plano é de um documento que não está mais aberto neste Revit (foi fechado, ou reaberto " +
+                           "com outra identificação). Ele não pode ser executado; feche esta janela e peça à IA um plano novo.";
+                case "PLAN_EXPIRED":
+                    return "Este plano expirou. Feche esta janela; a IA pode propor um novo.";
+                case "PLAN_NOT_PENDING":
+                    return "Este plano já foi decidido ou executado.";
+                case "PLAN_NOT_FOUND":
+                    return "O broker não conhece mais este plano (ele foi reiniciado ou o plano foi removido).";
+                case "HASH_MISMATCH":
+                case "PLAN_HASH_MISMATCH":
+                    return "O plano mudou desde que esta janela abriu; por segurança a decisão foi recusada.";
+                default:
+                    return $"O broker recusou a decisão ({code}): {error}";
+            }
         }
 
         private void SendDecision(PlanApprovalWindow window, string decision, string note)
