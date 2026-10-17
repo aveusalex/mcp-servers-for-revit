@@ -16,7 +16,7 @@ namespace RevitMCPCommandSet.Tools.Editing
         [JsonProperty("operation", Required = Required.Always)]
         [Required]
         [EnumValues("create", "add", "remove", "rename", "disassemble")]
-        [Description("create: new assembly (conjunto) from elementIds. add / remove: members of an existing assembly. rename: the assembly type name. disassemble: dissolve the assembly (members stay in the model).")]
+        [Description("create: new assembly (conjunto) from elementIds. add / remove: members of an existing assembly. rename: the assembly type name. disassemble: dissolve the assembly (members stay in the model; its assembly views and parts list are deleted, as Revit requires).")]
         public string Operation { get; set; }
 
         [JsonProperty("assemblyId")]
@@ -213,14 +213,25 @@ namespace RevitMCPCommandSet.Tools.Editing
             var name = asm.AssemblyTypeName;
             var members = asm.GetMemberIds().Select(i => i.GetValue()).OrderBy(i => i).ToList();
             var id = asm.Id.GetValue();
-            own.Step("MCP: disassemble", () => { asm.Disassemble(); });
+            // Assembly views can't outlive their assembly, and Revit fails the transaction with an error
+            // ("the views will be deleted") instead of deleting them: delete them first and say so.
+            var views = new FilteredElementCollector(ctx.Doc).OfClass(typeof(View)).Cast<View>()
+                .Where(v => v.AssociatedAssemblyInstanceId == asm.Id)
+                .Select(v => new { id = v.Id.GetValue(), name = v.Name }).ToList();
+            own.Step("MCP: disassemble", () =>
+            {
+                if (views.Count > 0) ctx.Doc.Delete(views.Select(v => v.id.ToRevitElementId()).ToList());
+                asm.Disassemble();
+            });
             return new
             {
                 operation = "disassemble",
                 assemblyId = id,
                 name,
                 freedMemberIds = members,
-                changeSummary = Prefix(ctx) + $"Assembly '{name}' disassembled; {members.Count} element(s) kept."
+                deletedAssemblyViews = views,
+                changeSummary = Prefix(ctx) + $"Assembly '{name}' disassembled; {members.Count} element(s) kept" +
+                                (views.Count > 0 ? $"; {views.Count} assembly view(s) deleted with it." : ".")
             };
         }
     }

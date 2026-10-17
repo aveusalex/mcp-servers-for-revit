@@ -96,3 +96,34 @@ reconfigurar marcenaria.
 As ferramentas de risco médio foram exercitadas em modo prévia (o código roda inteiro no Revit e a transação é
 desfeita no fim); aplicá-las de verdade exige aprovação humana na janela do Revit, por desenho — a janela e o fluxo
 de aprovação foram testados com aprovação real na Fase 0.
+
+## Rodadas R1/R2 + fechamento da cobertura do MAPA (17/10/2026, noite)
+
+**Agora: 177 ferramentas no framework** e 6 roteiros (prompts MCP). Cobertura do MAPA: das 182 ferramentas não
+proprietárias, **182 têm equivalente** (ver `COBERTURA_MAPA.md`); 34 descartadas por serem proprietárias/específicas.
+
+Novas e testadas ao vivo nesta rodada:
+- `create_finish_material` — MDF com imagem de textura, revestimento 600×600 com junta de 2 mm (padrão de
+  superfície gerado), tinta por cor.
+- `import_image` — imagem na planta, em escala, embutida no modelo.
+- `manage_assembly` (criar, desmontar) + `create_assembly_views` (3D, elevações, lista de peças e folha).
+- `create_locked_alignment` — trava cadeado entre plano de referência e face de parede; recusa com a distância
+  exata quando as referências não coincidem.
+- `set_work_plane`, `create_reference_plane`, `create_family_from_template` (prévia: família montada e flexionada
+  em memória; largura/profundidade/altura travadas).
+- `import_mesh` (novo, equivalente ao "import_mesh_as_family" do MAPA) — OBJ/STL (ASCII e binário) vira um tipo
+  DirectShape reutilizável na categoria escolhida: unidades, eixo vertical, âncora, nível, rotação, material por
+  `usemtl`; sólido quando a malha é fechada. Testado com banco OBJ (Y para cima, em m) e pirâmide STL binária.
+- Roteiros novos: `roteiro_familia` e `roteiro_conversao`.
+
+Bugs desta rodada, corrigidos e revalidados (23–26):
+23. Prévias (dryRun) apareciam no histórico de desfazer e em `get_session_changes` — o Revit não avisa quando um
+    TransactionGroup é revertido; o log agora descarta os eventos da prévia.
+24. Caminho relativo à raiz (`textures/x.png`) virava `textures\textures\x.png` — leitura cai para a raiz quando o
+    arquivo está lá.
+25. `manage_assembly` disassemble era revertido pelo Revit (as vistas do conjunto não sobrevivem a ele) — apaga as
+    vistas do conjunto antes e informa quais.
+26. `create_family_from_template` avisava "nome já em uso" ao renomear o tipo padrão para o mesmo nome.
+
+Não testados ao vivo: `create_void_cut` (precisa de uma família com vazio não anexado) e `load_rvt_as_group` (precisa
+de um .rvt salvo nas pastas permitidas; salvar é risco médio e passa por aprovação).

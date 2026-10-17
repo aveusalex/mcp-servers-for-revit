@@ -23,6 +23,8 @@
         <Compile Include="..\..\commandset\Tools\Architecture\Support\ArchArgs.cs" Link="Millwork\ArchArgs.cs" />
         <Compile Include="..\..\commandset\Tools\Millwork\Support\MillworkDesign.cs" Link="Millwork\MillworkDesign.cs" />
         <Compile Include="..\..\commandset\Tools\Millwork\Support\MillworkLayout.cs" Link="Millwork\MillworkLayout.cs" />
+        <!-- OBJ/STL reader of import_mesh. -->
+        <Compile Include="..\..\commandset\Tools\Families\Support\MeshFile.cs" Link="Families\MeshFile.cs" />
     </ItemGroup>
 
     <ItemGroup>

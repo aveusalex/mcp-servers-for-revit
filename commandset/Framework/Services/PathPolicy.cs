@@ -45,6 +45,14 @@ namespace RevitMCPCommandSet.Framework.Services
                 full = string.IsNullOrWhiteSpace(path)
                     ? Normalize(baseDir)
                     : Normalize(Path.IsPathRooted(path) ? path : Path.Combine(baseDir, path));
+                // Callers often write paths relative to the root ("textures/x.png") even when the tool's default
+                // folder is a subfolder: when reading, fall back to the root if that is where the file is.
+                if (!forWrite && !string.IsNullOrWhiteSpace(path) && !Path.IsPathRooted(path) && subFolder != null
+                    && !File.Exists(full) && !Directory.Exists(full))
+                {
+                    var fromRoot = Normalize(Path.Combine(DefaultRoot, path));
+                    if (File.Exists(fromRoot) || Directory.Exists(fromRoot)) full = fromRoot;
+                }
             }
             catch (Exception ex)
             {

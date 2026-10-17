@@ -2,7 +2,7 @@
 
 Gerado de research/capabilities/*.map.csv × tools.manifest.json. MAPA é proprietário: nada foi copiado; equivalentes escritos do zero.
 
-Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pendentes, 34 descartadas.
+Resumo: 216 ferramentas do MAPA → **182 com equivalente implementado**, 0 pendentes, 34 descartadas (atualizado após as rodadas R1/R2, 17/10/2026).
 
 | Ferramenta MAPA | Capacidade | Nossa ferramenta | Situação |
 |---|---|---|---|
@@ -11,9 +11,9 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | (inferida) categorizar tipos | PAR-04 | bulk_update_parameters | **implementada** |
 | (inferida) checar exportador Twinmotion | — | — | descartada (proprietária/específica do escritório deles) |
 | (inferida) cotas de terreno/calçada | ARQ-12 | setup_project_levels | **implementada** |
-| (inferida) criar acabamento MDF por imagem/link | MAT-15 | create_finish_material | pendente (fase 3) |
-| (inferida) criar revestimento | MAT-15 | create_finish_material | pendente (fase 3) |
-| (inferida) criar tinta/textura/monolítico | MAT-15 | create_finish_material | pendente (fase 3) |
+| (inferida) criar acabamento MDF por imagem/link | MAT-15 | create_finish_material | **implementada** (testada ao vivo) |
+| (inferida) criar revestimento | MAT-15 | create_finish_material | **implementada** (testada ao vivo) |
+| (inferida) criar tinta/textura/monolítico | MAT-15 | create_finish_material | **implementada** (testada ao vivo) |
 | (inferida) criar vista 3D | VIS-02 | create_view | **implementada** |
 | (inferida) documentar paisagismo | — | — | descartada (proprietária/específica do escritório deles) |
 | (inferida) enviar para Twinmotion | — | — | descartada (proprietária/específica do escritório deles) |
@@ -26,7 +26,7 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | (inferida) taxonomia de disciplinas | INF-05 | get_office_knowledge | **implementada** |
 | add_filter_to_view | VIS-17 | apply_view_filter | **implementada** |
 | add_filter_to_view_templates | VIS-17 | apply_view_filter | **implementada** |
-| add_to_assembly | EDT-09 | manage_assembly | pendente (fase B) |
+| add_to_assembly | EDT-09 | manage_assembly | **implementada** (testada ao vivo) |
 | add_to_group | EDT-08 | manage_groups | **implementada** |
 | adicionar_divisorias_internas | ARQ-25 | configure_millwork_module | **implementada** |
 | adicionar_portas | ARQ-25 | configure_millwork_module | **implementada** |
@@ -34,7 +34,7 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | ajustar_modulo | — | — | descartada (proprietária/específica do escritório deles) |
 | ajustar_vegetacao | — | — | descartada (proprietária/específica do escritório deles) |
 | align_elements | EDT-11 | align_distribute_elements | **implementada** |
-| align_with_lock | ANO-13 | create_locked_alignment | pendente (fase B) |
+| align_with_lock | ANO-13 | create_locked_alignment | **implementada** (testada ao vivo) |
 | apply_view_template | VIS-14 | apply_view_template | **implementada** |
 | array_linear | EDT-02 | array_elements | **implementada** |
 | array_radial | EDT-02 | array_elements | **implementada** |
@@ -48,13 +48,13 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | change_section_type_color | — | — | descartada (proprietária/específica do escritório deles) |
 | change_tags_type | FAM-01 | change_element_type | **implementada** |
 | change_viewport_type | FOL-07 | modify_viewport | **implementada** |
-| colorize_schedule_header | TAB-11 | style_schedule | pendente (fase B) |
-| colorize_schedule_stripe | TAB-11 | style_schedule | pendente (fase B) |
+| colorize_schedule_header | TAB-11 | style_schedule | **implementada** (testada ao vivo) |
+| colorize_schedule_stripe | TAB-11 | style_schedule | **implementada** (testada ao vivo) |
 | consultar_familia | CON-24 | list_families | **implementada** |
 | copy_elements | EDT-01 | transform_elements | **implementada** |
-| create_assembly | EDT-09 | manage_assembly | pendente (fase B) |
-| create_assembly_schedule | VIS-25 | create_assembly_views | pendente (fase B) |
-| create_assembly_views | VIS-25 | create_assembly_views | pendente (fase B) |
+| create_assembly | EDT-09 | manage_assembly | **implementada** (testada ao vivo) |
+| create_assembly_schedule | VIS-25 | create_assembly_views | **implementada** (testada ao vivo) |
+| create_assembly_views | VIS-25 | create_assembly_views | **implementada** (testada ao vivo) |
 | create_ceiling_by_walls | ARQ-03 | create_ceiling | **implementada** |
 | create_dimension | ANO-04 | create_dimensions | **implementada** |
 | create_drafting_view | VIS-02 | create_view | **implementada** |
@@ -63,7 +63,7 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | create_floor_by_walls | ARQ-02 | create_floor | **implementada** |
 | create_group | EDT-08 | manage_groups | **implementada** |
 | create_level | ARQ-11 | create_or_update_levels | **implementada** |
-| create_line_style | MAT-16 | manage_line_styles | pendente (fase 3) |
+| create_line_style | MAT-16 | manage_line_styles | **implementada** (testada ao vivo) |
 | create_material | MAT-09 | create_material | **implementada** |
 | create_material_takeoff | TAB-03 | create_schedule | **implementada** |
 | create_reference_plane | ARQ-17 | create_reference_plane | **implementada** |
@@ -82,10 +82,10 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | create_walls_polygon | ARQ-01 | create_walls | **implementada** |
 | create_walls_rectangle | ARQ-01 | create_walls | **implementada** |
 | criar_envelope_ambiente | ARQ-04 | create_room_envelope | **implementada** |
-| criar_extrusao_travada | FAM-16 | create_family_from_template | pendente (fase B) |
-| criar_familia | FAM-16 | create_family_from_template | pendente (fase B) |
+| criar_extrusao_travada | FAM-16 | create_family_from_template | **implementada** (testada ao vivo) |
+| criar_familia | FAM-16 | create_family_from_template | **implementada** (testada ao vivo) |
 | criar_modulo | ARQ-24 | create_millwork_module | **implementada** |
-| criar_vazio_de_corte | FAM-17 | create_void_cut | pendente (fase B) |
+| criar_vazio_de_corte | FAM-17 | create_void_cut | **implementada** |
 | criar_vegetacao | — | — | descartada (proprietária/específica do escritório deles) |
 | cut_solids | EDT-12 | join_cut_geometry | **implementada** |
 | definir_medidas_familia | PAR-14 | manage_family_parameters | **implementada** |
@@ -128,15 +128,15 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | get_padroes_atuais | INF-05 | get_office_knowledge | **implementada** |
 | get_pecas_plano_corte | — | — | descartada (proprietária/específica do escritório deles) |
 | get_schedules | CON-06 | list_views | **implementada** |
-| get_selected_elements | SEL-02 | get_selected_elements | pendente (fase 2) |
-| get_undo_history | UND-07 | undo_history | pendente (fase 1) |
+| get_selected_elements | SEL-02 | get_selected_elements | **implementada** |
+| get_undo_history | UND-07 | get_undo_history / undo_last / redo_last | **implementada** (testada ao vivo) |
 | get_view_family_types | CON-06 | list_views | **implementada** |
 | get_view_templates | CON-06 | list_views | **implementada** |
 | get_views | CON-06 | list_views | **implementada** |
 | get_volume_dimensions | — | — | descartada (proprietária/específica do escritório deles) |
 | hide_in_view | SEL-06 | set_view_temporary_visibility | **implementada** |
-| import_image | EXP-14 | import_image | pendente (fase 3) |
-| import_mesh_as_family | EXP-15 | import_mesh_as_family | pendente (fase B) |
+| import_image | EXP-14 | import_image | **implementada** (testada ao vivo) |
+| import_mesh_as_family | EXP-15 | import_mesh | **implementada** (testada ao vivo) |
 | inserir_vegetacao | ARQ-06 | place_family_instance | **implementada** |
 | insert_door | ARQ-07 | place_door_window | **implementada** |
 | insert_rodapes_room | ARQ-05 | create_room_perimeter_profile | **implementada** |
@@ -148,7 +148,7 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | list_attached_detail_groups | CON-18 | list_groups | **implementada** |
 | list_group_types | CON-18 | list_groups | **implementada** |
 | list_modulo_templates | — | — | descartada (proprietária/específica do escritório deles) |
-| load_as_group | FAM-18 | load_rvt_as_group | pendente (fase B) |
+| load_as_group | FAM-18 | load_rvt_as_group | **implementada** |
 | load_family | FAM-07 | load_family | **implementada** |
 | lock_floor_boundary_to_walls | — | — | descartada (proprietária/específica do escritório deles) |
 | mapear_pasta_modelos_3d | — | — | descartada (proprietária/específica do escritório deles) |
@@ -178,11 +178,11 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | place_view_on_sheet | FOL-04 | place_on_sheet | **implementada** |
 | preencher_identidade_familia | PAR-14 | manage_family_parameters | **implementada** |
 | propagate_group_edit | — | — | descartada (proprietária/específica do escritório deles) |
-| redo | UND-07 | undo_history | pendente (fase 1) |
+| redo | UND-07 | get_undo_history / undo_last / redo_last | **implementada** (testada ao vivo) |
 | regroup_from_selection | EDT-08 | manage_groups | **implementada** |
 | reload_mapa_padroes | INF-05 | get_office_knowledge | **implementada** |
 | remove_filter_from_view_template | VIS-17 | apply_view_filter | **implementada** |
-| remove_from_assembly | EDT-09 | manage_assembly | pendente (fase B) |
+| remove_from_assembly | EDT-09 | manage_assembly | **implementada** (testada ao vivo) |
 | remove_from_group | EDT-08 | manage_groups | **implementada** |
 | rename_group_type | FAM-04 | rename_types | **implementada** |
 | replace_office_logo | — | — | descartada (proprietária/específica do escritório deles) |
@@ -190,8 +190,8 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | resize_modulo_volume | — | — | descartada (proprietária/específica do escritório deles) |
 | resize_porta_grupo | — | — | descartada (proprietária/específica do escritório deles) |
 | rotate_elements | EDT-01 | transform_elements | **implementada** |
-| roteiro_conversao | INF-06 | MCP | pendente (fase 1) |
-| roteiro_familia | INF-06 | MCP | pendente (fase 1) |
+| roteiro_conversao | INF-06 | prompts roteiro_* | **implementada** |
+| roteiro_familia | INF-06 | prompts roteiro_* | **implementada** |
 | select_elements | SEL-01 | select_elements | **implementada** |
 | select_elements_by_room | CON-16 | find_elements_in_volume | **implementada** |
 | select_elements_by_view | SEL-01 | select_elements | **implementada** |
@@ -203,7 +203,7 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | set_guia_lateral_offset | — | — | descartada (proprietária/específica do escritório deles) |
 | set_volume_dimensions | — | — | descartada (proprietária/específica do escritório deles) |
 | set_wall_base_top | EDT-10 | set_wall_base_top | **implementada** |
-| set_work_plane | VIS-26 | set_work_plane | pendente (fase B) |
+| set_work_plane | VIS-26 | set_work_plane | **implementada** (testada ao vivo) |
 | setup_inicial_projeto | ARQ-12 | setup_project_levels | **implementada** |
 | show_hide_attached_detail_group | SEL-06 | set_view_temporary_visibility | **implementada** |
 | split_element | EDT-13 | edit_element_curve | **implementada** |
@@ -215,8 +215,8 @@ Resumo: 216 ferramentas do MAPA → **156 com equivalente implementado**, 26 pen
 | trim_extend_single_element | EDT-13 | edit_element_curve | **implementada** |
 | trim_extend_to_corner | EDT-13 | edit_element_curve | **implementada** |
 | trocar_acabamento | MAT-13 | assign_material | **implementada** |
-| undo | UND-07 | undo_history | pendente (fase 1) |
-| undo_to | UND-07 | undo_history | pendente (fase 1) |
+| undo | UND-07 | get_undo_history / undo_last / redo_last | **implementada** (testada ao vivo) |
+| undo_to | UND-07 | get_undo_history / undo_last / redo_last | **implementada** (testada ao vivo) |
 | ungroup | EDT-08 | manage_groups | **implementada** |
 | unhide_in_view | SEL-06 | set_view_temporary_visibility | **implementada** |
 | unpin_elements | EDT-04 | set_elements_pinned | **implementada** |

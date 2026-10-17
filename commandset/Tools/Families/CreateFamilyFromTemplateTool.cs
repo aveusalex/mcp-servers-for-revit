@@ -272,7 +272,8 @@ namespace RevitMCPCommandSet.Tools.Families
 
                     // Types
                     typeNames = new List<string>();
-                    try { mgr.RenameCurrentType(a.Types != null && a.Types.Count > 0 ? a.Types[0].Name.Trim() : DefaultTypeName(a)); }
+                    var firstName = a.Types != null && a.Types.Count > 0 ? a.Types[0].Name.Trim() : DefaultTypeName(a);
+                    try { if (mgr.CurrentType?.Name != firstName) mgr.RenameCurrentType(firstName); }
                     catch (Exception ex) { notes.Add("The default type could not be renamed: " + ex.Message); }
                     var first = mgr.CurrentType;
                     if (a.Types != null)

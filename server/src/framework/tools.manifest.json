@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "9aecd2692d7327b9e2cbbe0918c90f01c2b22e0723d7e496ae2385e73cdd9aca",
+  "capabilityHash": "059fc0f41522e22fe8414e7a5ed62bc97cb3dd05dbd01fdd0a53b25d7546391f",
   "tools": [
     {
       "name": "activate_view",
@@ -8879,6 +8879,119 @@
       }
     },
     {
+      "name": "import_mesh",
+      "description": "Import a 3D mesh (.obj or .stl, e.g. furniture or a decorative object from SketchUp/Blender/3D Warehouse exports) as a reusable DirectShape type in a category (default Generic Models) and place an instance: units, up axis, anchor (bottomCenter or file origin), position in mm, level, rotation and material (OBJ usemtl names are matched to project materials). Degenerate triangles are skipped and reported. Revit builds a solid when the mesh is closed, else a mesh (visible, but no cut/volume). Importing again with the same name places another instance of the same type. It is not an editable family: for parametric objects use create_family_from_template. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "families",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 300,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Mesh file (.obj or .stl, ASCII or binary): absolute, or relative to Documents\\RevitMCP\\models; must be in the allowed folders.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Type name of the imported object (it becomes a reusable DirectShape type). Default: the file name.",
+            "type": "string"
+          },
+          "category": {
+            "description": "Category (pt-BR or English), e.g. \"Mobiliário\" / \"Furniture\", \"Equipamento especializado\". Default Generic Models.",
+            "type": "string",
+            "default": "Generic Models"
+          },
+          "units": {
+            "description": "Units the file was modelled in (OBJ/STL carry none). Default mm. SketchUp exports are often in, Blender in m.",
+            "type": "string",
+            "enum": [
+              "mm",
+              "cm",
+              "m",
+              "in",
+              "ft"
+            ],
+            "default": "mm"
+          },
+          "upAxis": {
+            "description": "Which file axis points up. y for most Blender/glTF-style OBJ exports, z for CAD/SketchUp. Default z.",
+            "type": "string",
+            "enum": [
+              "z",
+              "y"
+            ],
+            "default": "z"
+          },
+          "anchor": {
+            "description": "Which point of the mesh goes to position: bottomCenter (default: centre of the bounding box at its lowest point, good for furniture) or origin (the file's 0,0,0).",
+            "type": "string",
+            "enum": [
+              "bottomCenter",
+              "origin"
+            ],
+            "default": "bottomCenter"
+          },
+          "position": {
+            "description": "Where the anchor goes (mm). z is measured from the level when level is given. Default 0,0,0.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "level": {
+            "description": "Level (name or id) the position's z is measured from. Default: z is absolute.",
+            "type": "string"
+          },
+          "rotationDeg": {
+            "description": "Rotation about the vertical axis through the anchor, in degrees (counter-clockwise). Default 0.",
+            "type": "number",
+            "x-unit": "deg"
+          },
+          "material": {
+            "description": "Material (name or id) for every face. OBJ faces whose usemtl matches a project material by name keep that material instead. Default: none (category material).",
+            "type": "string"
+          },
+          "maxTriangles": {
+            "description": "Refuse meshes with more triangles than this (heavy meshes slow the whole model). Default 100000.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500000,
+            "default": 100000
+          },
+          "reuseType": {
+            "description": "If a type with this name was already imported in this category, place another instance of it without reading the file again. Default true.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "import_parameters_table",
       "description": "Import a CSV table (as written by export_parameters_table and edited in Excel) into parameters. Rows are found by the key column (UniqueId or ElementId); headers name the parameter (\"Width [mm]\", optional {builtIn:X}/{guid:G}); columns starting with '_' are ignored. ALWAYS run it first with dryRun:true (no approval needed): you get a per-cell diff (changed, unchanged, invalid, read-only, missing element/parameter) and nothing is kept. Then run it for real (needs approval): one transaction, read-back, atomic by default. Only reads inside the allowed folders. Undo: Ctrl+Z or send revert[] to set_parameters / set_type_parameters.",
       "kind": "write",
@@ -10073,7 +10186,7 @@
         "type": "object",
         "properties": {
           "operation": {
-            "description": "create: new assembly (conjunto) from elementIds. add / remove: members of an existing assembly. rename: the assembly type name. disassemble: dissolve the assembly (members stay in the model).",
+            "description": "create: new assembly (conjunto) from elementIds. add / remove: members of an existing assembly. rename: the assembly type name. disassemble: dissolve the assembly (members stay in the model; its assembly views and parts list are deleted, as Revit requires).",
             "type": "string",
             "enum": [
               "create",

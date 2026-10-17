@@ -171,6 +171,72 @@ Siga este roteiro e não altere nada sem me mostrar a prévia:
 ${CONVENCOES}`;
     },
   },
+  {
+    name: "roteiro_familia",
+    title: "Roteiro: criar uma família paramétrica simples",
+    description:
+      "Cria uma família de modelo genérico (caixa ou perfil extrudado) com largura/profundidade/altura travadas a " +
+      "parâmetros e material, testa a flexão, carrega no projeto e insere uma instância.",
+    args: [
+      { name: "familia", description: "O que modelar e as medidas (ex.: nicho 600x300x400). Vazio = perguntar.", required: false },
+      { name: "tipos", description: "Tipos a criar (ex.: 600x300, 900x300). Vazio = só o tipo padrão.", required: false },
+    ],
+    build: (a) => `Quero criar a família: ${alvo(a.familia, "(pergunte o que modelar e as medidas)")}.
+${a.tipos ? `Tipos desejados: ${a.tipos}.\n` : ""}Siga este roteiro, um passo por vez:
+
+1. Antes de criar
+   - Veja se já existe algo parecido: \`list_families\` e \`get_available_family_types\` (reaproveitar é melhor que
+     duplicar). Se existir e só faltar um tamanho, use \`duplicate_type\` + \`set_type_parameters\`.
+   - Combine comigo nome, categoria, medidas, quais parâmetros são de instância e o material.
+2. Criação (prévia primeiro)
+   - \`create_family_from_template\` com dryRun:true: a família é montada e flexionada em memória e a resposta diz
+     se largura, profundidade e altura ficaram travadas (locks/flex). Se algum eixo não flexionar, pare e explique.
+   - Contorno não retangular: passe polygon (só a altura fica paramétrica).
+   - Aplicar (dryRun:false) é risco médio: \`propose_change_plan\` → \`wait_for_plan_decision\` → \`execute_plan\`.
+3. Uso no projeto
+   - Insira uma instância com \`place_family_instance\` e confira com \`get_element_details\`.
+   - Ajustes finos de parâmetros/fórmulas: \`edit_family\` (abre a cópia no editor) + \`manage_family_parameters\`,
+     e \`edit_family\` de novo para recarregar.
+   - Material: \`create_finish_material\` se o acabamento não existir; depois \`set_type_parameters\`.
+4. Verificação
+   - \`capture_view_image\` numa vista 3D para eu ver a peça, e \`get_model_warnings\` para avisos novos.
+${CONVENCOES}`,
+  },
+  {
+    name: "roteiro_conversao",
+    title: "Roteiro: converter uma referência em modelo nativo",
+    description:
+      "Converte um vínculo Revit (ou uma planta de referência) em elementos nativos do projeto: níveis, paredes, " +
+      "portas/janelas e ambientes, conferindo áreas no fim.",
+    args: [
+      { name: "origem", description: "Vínculo Revit (nome), arquivo .rvt ou imagem de planta. Vazio = perguntar.", required: false },
+      { name: "escopo", description: "O que converter (ex.: só paredes do térreo). Vazio = níveis, paredes, aberturas e ambientes.", required: false },
+    ],
+    build: (a) => `Quero converter ${alvo(a.origem, "(pergunte qual referência)")} em modelo nativo.
+Escopo: ${alvo(a.escopo, "níveis, paredes, portas/janelas e ambientes")}.
+Siga este roteiro e me mostre a prévia de cada etapa:
+
+1. Referência
+   - Vínculo Revit: \`list_links\` e \`get_link_elements\` (níveis, paredes com linha, espessura e altura; portas e
+     janelas com hospedeiro e posição) — tudo em coordenadas do projeto.
+   - Arquivo .rvt para trazer inteiro como grupo: \`load_rvt_as_group\` (risco médio, pede aprovação).
+   - Imagem de planta: \`import_image\` numa vista, em escala; as medidas devem vir de mim (não leia cotas no olho).
+   - Resuma o que vai ser criado (quantidades por categoria) e espere minha confirmação.
+2. Níveis
+   - \`setup_project_levels\` (ou \`create_or_update_levels\`) com as cotas da referência; confira com \`list_levels\`.
+3. Paredes
+   - Mapeie cada espessura para um tipo existente (\`get_available_family_types\`); se faltar, \`duplicate_type\` +
+     \`set_compound_structure\`.
+   - \`create_walls\` em lotes por nível, com a linha de localização correta (a resposta traz a linha de referência
+     para conferir). Una as paredes que precisarem com \`join_cut_geometry\`.
+4. Portas e janelas
+   - \`place_door_window\` em cada parede nova (posição ao longo da parede em mm, peitoril das janelas).
+5. Ambientes e conferência
+   - \`create_rooms\` (mode all_circuits) e \`list_spatial_elements\`: compare as áreas com a referência.
+   - \`get_model_warnings\` para paredes sobrepostas; \`capture_view_image\` para eu comparar lado a lado.
+   - Ao terminar, o vínculo pode ser descarregado com \`manage_links\` (operation unload).
+${CONVENCOES}`,
+  },
 ];
 
 /** Registers the workflow prompts on the MCP server (before connect, so the prompts capability is advertised). */

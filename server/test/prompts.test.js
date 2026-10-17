@@ -43,7 +43,7 @@ test("workflow prompts are listed over MCP with their arguments", async () => {
   try {
     const { prompts } = await client.listPrompts();
     const names = prompts.map((p) => p.name).sort();
-    assert.deepEqual(names, ["roteiro_ambiente", "roteiro_documentacao", "roteiro_marcenaria", "roteiro_qa"]);
+    assert.deepEqual(names, ["roteiro_ambiente", "roteiro_conversao", "roteiro_documentacao", "roteiro_familia", "roteiro_marcenaria", "roteiro_qa"]);
     assert.deepEqual([...registered].sort(), names);
     for (const p of prompts) {
       assert.ok(p.description && p.description.length > 20, `${p.name} needs a description`);
