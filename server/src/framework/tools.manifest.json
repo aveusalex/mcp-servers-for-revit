@@ -1,7 +1,820 @@
 {
   "version": 1,
-  "capabilityHash": "4543b52b3570de9d9e74d4d183a14531450532a0bb52fe735aaf6b2026e743ad",
+  "capabilityHash": "968c2713cebb4a09ea5043ec6bcaf39e22405b5a40587bb77f6514333a5095f0",
   "tools": [
+    {
+      "name": "align_viewports",
+      "description": "Align viewports to a reference viewport, on the same sheet or across sheets. same_model_point puts the same model point at the same paper position (typical for stacked floor plans; warns on different scales or orientations); left/right/top/bottom/center_h/center_v/center align the viewport boxes (box outline in paper mm). Each move is read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "reference": {
+            "description": "Reference viewport: viewport id, or the name/id of a view placed on exactly one sheet.",
+            "type": "string"
+          },
+          "targets": {
+            "description": "Viewports to move (same forms as reference); may be on other sheets. Up to 200.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mode": {
+            "description": "same_model_point (same model point at the same paper position: aligns plans across sheets), left, right, top, bottom (box edges), center_h (same X centre), center_v (same Y centre) or center.",
+            "type": "string",
+            "enum": [
+              "same_model_point",
+              "left",
+              "right",
+              "top",
+              "bottom",
+              "center_h",
+              "center_v",
+              "center"
+            ]
+          }
+        },
+        "required": [
+          "reference",
+          "targets",
+          "mode"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "apply_view_filter",
+      "description": "Add, update or remove an existing view filter on views or view templates, with visibility, enabled flag and graphic overrides (line colors/weight, surface/cut patterns and colors, transparency, halftone; \"solid\" = solid fill). Views whose filters are controlled by a template are refused with the template name (target the template). State is read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "targets": {
+            "description": "Views or view templates (names or ids), up to 200.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "description": "View filter (rule-based or selection filter) name or id.",
+            "type": "string"
+          },
+          "action": {
+            "description": "add (default; updates if already applied), update (must already be applied) or remove.",
+            "type": "string",
+            "enum": [
+              "add",
+              "update",
+              "remove"
+            ],
+            "default": "add"
+          },
+          "visible": {
+            "description": "Whether elements passing the filter are visible.",
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "Whether the filter is enabled in the view.",
+            "type": "boolean"
+          },
+          "overrides": {
+            "description": "Graphic overrides for the filter (only the given fields change).",
+            "type": "object",
+            "properties": {
+              "projectionLineColor": {
+                "description": "Projection line color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "projectionLineWeight": {
+                "description": "Projection line weight (pen number 1-16).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "cutLineColor": {
+                "description": "Cut line color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "surfaceColor": {
+                "description": "Surface foreground pattern color as \"#RRGGBB\" (needs a surfacePattern, e.g. \"solid\").",
+                "type": "string"
+              },
+              "surfacePattern": {
+                "description": "Surface foreground fill pattern name or id; \"solid\" for the solid fill; \"none\" to clear.",
+                "type": "string"
+              },
+              "cutColor": {
+                "description": "Cut foreground pattern color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "cutPattern": {
+                "description": "Cut foreground fill pattern name or id; \"solid\" for the solid fill; \"none\" to clear.",
+                "type": "string"
+              },
+              "transparency": {
+                "description": "Surface transparency in percent, 0-100.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "halftone": {
+                "description": "Draw in halftone.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "atomic": {
+            "description": "true (default): any target that fails rolls the whole call back. false: failures are reported per target.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "targets",
+          "filter"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "apply_view_template",
+      "description": "Assign a view template to views (mode assign: stays linked), apply its settings once without linking (mode apply_once), or remove the template (template \"none\"). Compatibility is checked per view (IsValidViewTemplate) and the result read back with the previous template, so the call can be reverted. Atomic by default. Undo: Ctrl+Z, or call again with the returned before values.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "views": {
+            "description": "Views (names or ids), up to 500.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "template": {
+            "description": "View template name or id, or \"none\" to remove the template from the views.",
+            "type": "string"
+          },
+          "mode": {
+            "description": "assign (default): the view stays linked to the template. apply_once: copy the template's settings once, without linking.",
+            "type": "string",
+            "enum": [
+              "assign",
+              "apply_once"
+            ],
+            "default": "assign"
+          },
+          "atomic": {
+            "description": "true (default): any incompatible view rolls the whole call back. false: incompatible views are reported in failed[].",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "views",
+          "template"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "assign_revision_to_sheets",
+      "description": "Add a revision to sheets, or remove it (manual assignment, no cloud). The sheet's existing manual revisions are kept (read, merge, write); sheets that already have it are reported as unchanged; revisions that come from clouds cannot be removed this way. Read back per sheet. Undo: Ctrl+Z or call again with the opposite mode.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "description": "Revision: element id, \"#N\" / \"seq:N\" for sequence number N, or its description.",
+            "type": "string"
+          },
+          "sheets": {
+            "description": "Sheets (numbers, names or ids), up to 1000.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mode": {
+            "description": "add (default) or remove. Only manual assignments can be removed; revisions that come from clouds stay.",
+            "type": "string",
+            "enum": [
+              "add",
+              "remove"
+            ],
+            "default": "add"
+          },
+          "atomic": {
+            "description": "true (default): any sheet that fails rolls the whole call back. false: failures are reported per sheet.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "revision",
+          "sheets"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "capture_view_image",
+      "description": "Render a view or sheet to an image (png default, or jpg) at widthPx pixels, saved under the allowed output folder (Documents\\RevitMCP\\captures) with a unique name, and return it inline as an image so the model can be looked at; also returns the file path. Without view, captures the active view of the target document when it is the active one. Does not change the model.",
+      "kind": "read",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View or sheet (name or id). Omit for the active view (only when the target document is the active one).",
+            "type": "string"
+          },
+          "widthPx": {
+            "description": "Image width in pixels, 128-4096 (default 1200).",
+            "type": "integer",
+            "minimum": 128,
+            "maximum": 4096,
+            "default": 1200
+          },
+          "format": {
+            "description": "png (default) or jpg.",
+            "type": "string",
+            "enum": [
+              "png",
+              "jpg"
+            ],
+            "default": "png"
+          },
+          "returnInline": {
+            "description": "Return the image itself to the client (default true; images over 4 MB are only saved). false: only save the file and return its path.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_callout_view",
+      "description": "Create a callout view inside a parent view (plan, section, elevation, detail), framed by a model-XY rectangle in mm (plans) or by elements plus padding mm (any parent; corners are projected through the parent's view transform). kind plan (cropped plan, plan parents) or detail. Optional name, scale (20 = 1:20), detail level, template. The callout's crop is read back. Undo: Ctrl+Z or delete the returned view id.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "parentView": {
+            "description": "View (name or id) the callout is drawn in: a plan, section, elevation or detail view.",
+            "type": "string"
+          },
+          "rect": {
+            "description": "Callout rectangle in model XY (mm). Plans only; for sections/elevations use fitElementIds.",
+            "type": "object",
+            "properties": {
+              "min": {
+                "description": "Lower-left corner in model coordinates (mm).",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate in mm (project internal origin).",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate in mm (project internal origin).",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              },
+              "max": {
+                "description": "Upper-right corner in model coordinates (mm).",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate in mm (project internal origin).",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate in mm (project internal origin).",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "additionalProperties": false
+          },
+          "fitElementIds": {
+            "description": "Element ids to frame instead of rect: the callout covers their extents as seen in the parent view, plus padding.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "padding": {
+            "description": "Margin around fitElementIds, in mm (default 300).",
+            "type": "number",
+            "x-unit": "mm",
+            "default": 300
+          },
+          "kind": {
+            "description": "plan = callout of the same family as a plan parent (a cropped plan); detail = detail view. Default: plan for plan parents, detail otherwise.",
+            "type": "string",
+            "enum": [
+              "plan",
+              "detail"
+            ]
+          },
+          "viewFamilyType": {
+            "description": "View type name or id for the callout; overrides kind.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Callout view name (must be free). Omit for Revit's default name.",
+            "type": "string"
+          },
+          "scale": {
+            "description": "Scale denominator (20 = 1:20).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24000
+          },
+          "detailLevel": {
+            "description": "coarse, medium or fine.",
+            "type": "string",
+            "enum": [
+              "coarse",
+              "medium",
+              "fine"
+            ]
+          },
+          "template": {
+            "description": "View template name or id to assign.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parentView"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_elevation_view",
+      "description": "Place an elevation marker on a plan at a point (mm) and create 1-4 elevations by the direction the camera looks to (north = +Y, east = +X of the model). Each view's real direction is read back. Optional view type (e.g. interior elevation), scale, name pattern with {dir}, template, and crop to elements (fitElementIds + padding mm, e.g. a room). Undo: Ctrl+Z or delete the returned view ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "description": "Floor/ceiling plan (name or id) where the elevation marker is placed.",
+            "type": "string"
+          },
+          "point": {
+            "description": "Marker position in plan, mm (project internal origin).",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm (project internal origin).",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm (project internal origin).",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "directions": {
+            "description": "Directions the cameras look to (model axes: north = +Y, east = +X). Default all four. An interior elevation of the north wall looks north; an exterior 'north facade' elevation looks south.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "north",
+                "south",
+                "east",
+                "west"
+              ]
+            }
+          },
+          "viewFamilyType": {
+            "description": "Elevation view type name or id (e.g. an interior elevation type). Omit for the default elevation type.",
+            "type": "string"
+          },
+          "scale": {
+            "description": "Scale denominator (50 = 1:50). Default: the plan's scale.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24000
+          },
+          "namePattern": {
+            "description": "Name pattern with {dir} (N/S/E/W) and {direction} (north...), e.g. \"Elev. hall - {dir}\". Collisions get \" (2)\". Omit for Revit's default names.",
+            "type": "string"
+          },
+          "template": {
+            "description": "View template name or id to assign to every elevation.",
+            "type": "string"
+          },
+          "fitElementIds": {
+            "description": "Optional element ids (e.g. a room): each elevation is cropped to their extents seen from its direction, far clip included.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "padding": {
+            "description": "Margin around fitElementIds for the crop, in mm (default 300).",
+            "type": "number",
+            "x-unit": "mm",
+            "default": 300
+          }
+        },
+        "required": [
+          "plan",
+          "point"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_revision",
+      "description": "Create revisions (description, date text, issued by/to, numbering sequence, visibility, issued flag set last) and optionally add them to sheets without clouds. Each field is read back. Undo: Ctrl+Z or delete the returned revision ids (issued revisions must be un-issued first).",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Revisions to create, in order, up to 50.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "description": "Revision description (e.g. \"Emissão para aprovação\").",
+                  "type": "string"
+                },
+                "date": {
+                  "description": "Revision date as text, as it should appear (e.g. \"17/10/2026\").",
+                  "type": "string"
+                },
+                "issuedBy": {
+                  "description": "Issued by (free text).",
+                  "type": "string"
+                },
+                "issuedTo": {
+                  "description": "Issued to (free text).",
+                  "type": "string"
+                },
+                "numberingSequence": {
+                  "description": "Revision numbering sequence name or id. Omit for the default.",
+                  "type": "string"
+                },
+                "visibility": {
+                  "description": "cloud_and_tag (default), tag_only or hidden.",
+                  "type": "string",
+                  "enum": [
+                    "cloud_and_tag",
+                    "tag_only",
+                    "hidden"
+                  ]
+                },
+                "issued": {
+                  "description": "Mark as issued (locks the revision; default false). Set last.",
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [
+                "description"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "assignToSheets": {
+            "description": "Sheets (numbers, names or ids) that get every new revision (manual assignment, no cloud).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_room_views",
+      "description": "Room documentation views in bulk: for each room (ids, a level, or all) create a floor plan cropped to the room (+ padding mm) and/or interior elevations from a marker at the room's location point, each cropped to the room and far-clipped beyond its walls. Directions are the way the camera looks (north = +Y). Name patterns with {number}, {name}, {level}, {dir}; scales (50 = 1:50) and templates per kind. Up to 100 rooms per call; needs approval. Undo: Ctrl+Z or delete the returned view ids.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rooms": {
+            "description": "Room ids (strings). Alternatively use level or all.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "level": {
+            "description": "Every placed room of this level (name or id).",
+            "type": "string"
+          },
+          "all": {
+            "description": "Every placed room of the document (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "kinds": {
+            "description": "What to create per room: plan (floor plan cropped to the room) and/or elevations (interior elevations). Default both.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "plan",
+                "elevations"
+              ]
+            }
+          },
+          "directions": {
+            "description": "Interior elevations by the direction the camera looks to (north = +Y, east = +X). Default all four.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "north",
+                "south",
+                "east",
+                "west"
+              ]
+            }
+          },
+          "padding": {
+            "description": "Margin around the room for crops, in mm (default 300).",
+            "type": "number",
+            "x-unit": "mm",
+            "default": 300
+          },
+          "planScale": {
+            "description": "Scale denominator of the room plans (default 50 = 1:50).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24000,
+            "default": 50
+          },
+          "elevationScale": {
+            "description": "Scale denominator of the elevations (default 50 = 1:50).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24000,
+            "default": 50
+          },
+          "planTemplate": {
+            "description": "View template name or id for the room plans.",
+            "type": "string"
+          },
+          "elevationTemplate": {
+            "description": "View template name or id for the elevations.",
+            "type": "string"
+          },
+          "planViewFamilyType": {
+            "description": "Floor plan view type name or id. Omit for the default floor plan type.",
+            "type": "string"
+          },
+          "elevationViewFamilyType": {
+            "description": "Elevation view type name or id (e.g. an interior elevation type). Omit for the default.",
+            "type": "string"
+          },
+          "planNamePattern": {
+            "description": "Plan name pattern; tokens {number}, {name}, {level}. Default \"{number} - {name}\". Collisions get \" (2)\".",
+            "type": "string",
+            "default": "{number} - {name}"
+          },
+          "elevationNamePattern": {
+            "description": "Elevation name pattern; tokens {number}, {name}, {level}, {dir} (N/S/E/W), {direction}. Default \"{number} - {name} - {dir}\".",
+            "type": "string",
+            "default": "{number} - {name} - {dir}"
+          },
+          "hostPlan": {
+            "description": "Plan (name or id) that hosts the elevation markers when no room plan is created. Default: a floor plan of the room's level.",
+            "type": "string"
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back everything. true: failed rooms are listed in failed[] and the rest kept.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_section_view",
+      "description": "Create vertical building sections from a line in plan (start/end in mm). The section looks to the left of start->end by default (lookTo:right flips it), spans the line's length, goes from level + bottomOffset up by height and sees farClipDepth mm beyond the cut. The resulting view direction and crop are read back. Optional name, type, scale (50 = 1:50), detail level, template. Undo: Ctrl+Z or delete the returned view ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Sections to create, up to 50 per call.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "description": "Start of the section line in plan (mm, project internal origin).",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm (project internal origin).",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm (project internal origin).",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "end": {
+                  "description": "End of the section line in plan (mm). The line sets the width of the section.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm (project internal origin).",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm (project internal origin).",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "lookTo": {
+                  "description": "Which side of the line start->end the section looks at: left (default; drawn west->east it looks north) or right.",
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "right"
+                  ],
+                  "default": "left"
+                },
+                "level": {
+                  "description": "Reference level for bottomOffset (name or id). Omit for the lowest level.",
+                  "type": "string"
+                },
+                "bottomOffset": {
+                  "description": "Bottom of the section relative to the reference level, in mm (default -1000).",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": -1000
+                },
+                "height": {
+                  "description": "Height of the section from its bottom, in mm (default 6000).",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 6000
+                },
+                "farClipDepth": {
+                  "description": "How far the section sees beyond the cut line, in mm (default 5000).",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 5000
+                },
+                "name": {
+                  "description": "Section name (must be free among sections). Omit for Revit's default name.",
+                  "type": "string"
+                },
+                "viewFamilyType": {
+                  "description": "Section view type name or id. Omit for the default section type.",
+                  "type": "string"
+                },
+                "scale": {
+                  "description": "Scale denominator: 50 means 1:50.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 24000
+                },
+                "detailLevel": {
+                  "description": "coarse, medium or fine.",
+                  "type": "string",
+                  "enum": [
+                    "coarse",
+                    "medium",
+                    "fine"
+                  ]
+                },
+                "template": {
+                  "description": "View template name or id to assign.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back all sections. true: failed ones are listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
     {
       "name": "create_sheets",
       "description": "Create sheets in batch (real or placeholder): number, name, title block (\"Family: Type\", default title block if omitted), extra parameters and optional views/schedules placed at x/y in mm. Numbers are checked for forbidden characters and collisions (also within the request) before anything is created; names are read back. One transaction (one Ctrl+Z); all or nothing unless continueOnError. Undo: Ctrl+Z, or delete the returned sheet ids.",
@@ -87,6 +900,239 @@
         },
         "required": [
           "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_view",
+      "description": "Create views in batch: floor_plan, ceiling_plan, structural_plan, area_plan (needs a level), isometric 3d and drafting views, with optional name, view family type, scale (100 = 1:100), detail level, view template and scope box. Scale/detail are set before the template; every value is read back. Sections, elevations and callouts: create_section_view, create_elevation_view, create_callout_view. One transaction (one Ctrl+Z); all or nothing unless continueOnError. Undo: Ctrl+Z or delete the returned view ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Views to create, up to 100 per call.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "viewType": {
+                  "description": "Kind of view: floor_plan, ceiling_plan, structural_plan, area_plan, 3d (isometric) or drafting. Sections, elevations and callouts have their own tools.",
+                  "type": "string",
+                  "enum": [
+                    "floor_plan",
+                    "ceiling_plan",
+                    "structural_plan",
+                    "area_plan",
+                    "3d",
+                    "drafting"
+                  ]
+                },
+                "name": {
+                  "description": "View name (must be free among views of the same type). Omit to keep Revit's default name.",
+                  "type": "string"
+                },
+                "level": {
+                  "description": "Level name or id. Required for plans; ignored for 3d and drafting.",
+                  "type": "string"
+                },
+                "viewFamilyType": {
+                  "description": "View family type name or id (e.g. \"Planta de piso\"). Omit for the document's default type of that kind.",
+                  "type": "string"
+                },
+                "areaScheme": {
+                  "description": "Area scheme name or id, for area_plan (e.g. \"Gross Building\"). Omit when the document has only one.",
+                  "type": "string"
+                },
+                "scale": {
+                  "description": "Scale denominator: 100 means 1:100. Set before the template is applied.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 24000
+                },
+                "detailLevel": {
+                  "description": "coarse, medium or fine.",
+                  "type": "string",
+                  "enum": [
+                    "coarse",
+                    "medium",
+                    "fine"
+                  ]
+                },
+                "template": {
+                  "description": "View template name or id to assign (must be compatible with the view type).",
+                  "type": "string"
+                },
+                "scopeBox": {
+                  "description": "Scope box name or id to crop the view (plans and 3D only).",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "viewType"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back every view of the call. true: failed views are skipped and listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "duplicate_sheet",
+      "description": "Duplicate a sheet 1-20 times: same title block type and (copyParameters) its writable values, legends and schedules at the same positions, sheet annotations (text, generic annotations, detail lines/components, images, detail groups) and optionally the placed views duplicated (duplicate / with_detailing / as_dependent) and placed at the same centres with the same viewport type. Numbers given or \"<source>-1\"...; works the same on Revit 2022-2026. Needs approval. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sheet": {
+            "description": "Sheet to duplicate (number, name or id).",
+            "type": "string"
+          },
+          "copies": {
+            "description": "Number of copies, 1-20 (default 1).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 1
+          },
+          "numbers": {
+            "description": "Sheet numbers of the copies (one per copy, must be free). Omit for \"<source number>-1\", \"-2\"...",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "names": {
+            "description": "Sheet names of the copies (one per copy). Omit to keep the source name.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "viewOption": {
+            "description": "What to do with the placed views: none (default; only legends/schedules/annotations are copied), duplicate, with_detailing or as_dependent (each view is duplicated and placed at the same position).",
+            "type": "string",
+            "enum": [
+              "none",
+              "duplicate",
+              "with_detailing",
+              "as_dependent"
+            ],
+            "default": "none"
+          },
+          "viewNamePattern": {
+            "description": "Name of duplicated views; tokens {view} (source view name) and {number} (new sheet number). Default \"{view} - {number}\".",
+            "type": "string",
+            "default": "{view} - {number}"
+          },
+          "keepLegends": {
+            "description": "Place the same legends at the same positions (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "keepSchedules": {
+            "description": "Place the same schedules at the same positions (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "copyAnnotations": {
+            "description": "Copy sheet annotations: text, generic annotations, detail lines/components, images, detail groups (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "copyParameters": {
+            "description": "Copy writable sheet and title block instance values (except number and name; default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "copyRevisions": {
+            "description": "Copy the manually assigned revisions (default false).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "sheet"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "duplicate_view",
+      "description": "Duplicate views or schedules: option duplicate, with_detailing or as_dependent (checked with CanViewBeDuplicated first), count copies each, named newName (single copy) or prefix + source name + suffix (collisions get \" (2)\"). Returns the new view ids with their names read back. Undo: Ctrl+Z or delete the returned ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "views": {
+            "description": "Views or schedules to duplicate (names or ids), up to 50.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "option": {
+            "description": "duplicate (model only, default), with_detailing (also annotations/detail items) or as_dependent (a dependent view sharing the primary's annotations).",
+            "type": "string",
+            "enum": [
+              "duplicate",
+              "with_detailing",
+              "as_dependent"
+            ],
+            "default": "duplicate"
+          },
+          "count": {
+            "description": "Copies per view, 1-20 (default 1).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 1
+          },
+          "newName": {
+            "description": "Exact name of the copy; only for one view with count 1. Must be free.",
+            "type": "string"
+          },
+          "prefix": {
+            "description": "Text put before the source name for the copies' names.",
+            "type": "string"
+          },
+          "suffix": {
+            "description": "Text put after the source name for the copies' names. With neither prefix, suffix nor newName Revit's default names (\"... Copy 1\") are kept.",
+            "type": "string"
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back every copy. true: failed views are listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "views"
         ],
         "additionalProperties": false
       }
@@ -454,6 +1500,656 @@
       }
     },
     {
+      "name": "get_sheet_layout",
+      "description": "Layout of one sheet in paper mm (sheet coordinates, the same ones place_on_sheet and create_sheets use): title block with its extents and paper size, each viewport with view, scale, box centre, box outline, label outline, rotation, viewport type, detail number and title on sheet, and each schedule instance with its insertion point and extents. Optionally sheet and title block parameters. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sheet": {
+            "description": "Sheet number, name or id.",
+            "type": "string"
+          },
+          "includeParameters": {
+            "description": "Include the sheet's and title block's parameters (compact; default false).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "sheet"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_titleblock_parameters",
+      "description": "Read the parameters that fill a title block: the sheet's own parameters (number, name, drawn by, dates...) and the title block family instance's (and optionally type's), with values in wire units and the 'on' owner (sheet / titleblock / titleblock_type) to use in set_titleblock_parameters. Filter by parameters[]; paged by sheet. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sheets": {
+            "description": "Sheets (numbers, names or ids). Omit for every non-placeholder sheet (paged).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "target": {
+            "description": "Where to read: both (sheet + title block instance, default), sheet, titleblock (instance), titleblock_type, or all.",
+            "type": "string",
+            "enum": [
+              "both",
+              "sheet",
+              "titleblock",
+              "titleblock_type",
+              "all"
+            ],
+            "default": "both"
+          },
+          "parameters": {
+            "description": "Only these parameters, each {guid} | {builtIn} | {name}. Omit for all.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "guid": {
+                  "description": "Shared parameter GUID. Wins over builtIn and name.",
+                  "type": "string"
+                },
+                "builtIn": {
+                  "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "includeReadOnly": {
+            "description": "Include read-only parameters (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "description": "Sheets per page, 1-200 (default 50).",
+            "type": "integer",
+            "default": 50
+          },
+          "offset": {
+            "description": "Sheets to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_view_visibility",
+      "description": "Visibility/Graphics state of a view or template: hidden and overridden categories (BuiltInCategory + local name, paged), applied filters with visibility, enabled flag and overrides, the view template and which V/G parts it controls, discipline, phase, detail level, temporary hide/isolate. Use before set_category_visibility / apply_view_filter. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View or view template (name or id).",
+            "type": "string"
+          },
+          "onlyChanged": {
+            "description": "true (default): list only hidden or overridden categories. false: every category that can be hidden.",
+            "type": "boolean",
+            "default": true
+          },
+          "includeSubcategories": {
+            "description": "Also check subcategories (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "includeOverrides": {
+            "description": "Include the override details of categories and filters (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "description": "Categories page size, 1-1000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Categories to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "required": [
+          "view"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_revisions",
+      "description": "List revisions in sequence order: id, sequence, number, description, date, issued by/to, issued flag, visibility and numbering sequence; with includeSheets the sheets that carry each revision (manual vs from clouds); with includeSequences the numbering sequences. Paged. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "includeSheets": {
+            "description": "List the sheets each revision is on, and whether it comes from clouds or was added manually (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "includeSequences": {
+            "description": "Also list the revision numbering sequences (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "description": "Page size, 1-500 (default 100).",
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "description": "Revisions to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_sheets",
+      "description": "List sheets in natural number order (A-2 before A-10): id, number, name, placeholder flag, title block, current revision, viewport and schedule counts; optionally the viewports/schedules (includeViewports) and revisions (includeRevisions). Filter by numberContains / nameContains; paged with limit/offset. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "numberContains": {
+            "description": "Only sheets whose number contains this text (e.g. \"A-1\").",
+            "type": "string"
+          },
+          "nameContains": {
+            "description": "Only sheets whose name contains this text (case and accents ignored).",
+            "type": "string"
+          },
+          "includePlaceholders": {
+            "description": "Include placeholder sheets (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "includeViewports": {
+            "description": "List each sheet's viewports and schedules (default false: counts only).",
+            "type": "boolean",
+            "default": false
+          },
+          "includeRevisions": {
+            "description": "List each sheet's revisions (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "description": "Page size, 1-1000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Sheets to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_titleblocks",
+      "description": "List title block types (\"Family: Type\" as create_sheets expects) with id, whether it is the document default, paper size in mm when the family exposes it, and how many sheets use it (with up to 20 sheet numbers). Filter by nameContains, skip unused types with includeUnused:false; paged. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "nameContains": {
+            "description": "Only title blocks whose \"Family: Type\" contains this text (case and accents ignored).",
+            "type": "string"
+          },
+          "includeUnused": {
+            "description": "Include types not used by any sheet (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "description": "Page size, 1-500 (default 100).",
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "description": "Types to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_view_templates",
+      "description": "List view templates with id, name, view type, scale, detail level, how many views use them (includeUsage) and optionally the parameters each one controls (includeControlled). Filter by viewType (FloorPlan, Section, ThreeD...) and nameContains; paged with limit/offset. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "viewType": {
+            "description": "Only templates for this view type, e.g. FloorPlan, CeilingPlan, Section, Elevation, ThreeD, DraftingView, Schedule.",
+            "type": "string"
+          },
+          "nameContains": {
+            "description": "Only templates whose name contains this text (case and accents ignored).",
+            "type": "string"
+          },
+          "includeUsage": {
+            "description": "Count the views that use each template (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "includeControlled": {
+            "description": "List the parameters each template controls (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "description": "Page size, 1-500 (default 100).",
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "description": "Templates to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "manage_view_templates",
+      "description": "Manage view templates: create_from_view (sourceView + newName), duplicate (template + newName), rename, delete (detaches the views that use it; refused above maxUsedByViews, default 0) and set_controlled (which parameters the template controls, by dialog name or BuiltInParameter). Results are read back (ids, names, controlled list). Needs approval. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "create_from_view, duplicate, rename, delete or set_controlled.",
+            "type": "string",
+            "enum": [
+              "create_from_view",
+              "duplicate",
+              "rename",
+              "delete",
+              "set_controlled"
+            ]
+          },
+          "template": {
+            "description": "Existing template (name or id), for duplicate, rename, delete and set_controlled.",
+            "type": "string"
+          },
+          "sourceView": {
+            "description": "View (name or id) whose settings become a new template, for create_from_view.",
+            "type": "string"
+          },
+          "newName": {
+            "description": "Name of the new template (create_from_view, duplicate) or the new name (rename). Must be free among templates.",
+            "type": "string"
+          },
+          "controlled": {
+            "description": "set_controlled: parameters the template must control (names as in the View Template dialog, or BuiltInParameter names).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "uncontrolled": {
+            "description": "set_controlled: parameters the template must stop controlling.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxUsedByViews": {
+            "description": "delete: refuse when more than this many views use the template (default 0: only unused templates). Views that use it are detached first.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000,
+            "default": 0
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "place_on_sheet",
+      "description": "Place views and legends (as viewports) and schedules (as schedule instances) on sheets at x/y in paper mm, anchored by center, top_left or bottom_left of the placed box, with an optional viewport type. Checks Viewport.CanAddViewToSheet (a view can be on one sheet only; legends and schedules on many). Final positions are read back. Undo: Ctrl+Z or delete the returned ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Placements, up to 200 per call.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sheet": {
+                  "description": "Sheet number, name or id.",
+                  "type": "string"
+                },
+                "view": {
+                  "description": "View, legend or schedule to place (name or id).",
+                  "type": "string"
+                },
+                "x": {
+                  "description": "X of the anchor point on the sheet, paper mm (sheet coordinates).",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "y": {
+                  "description": "Y of the anchor point on the sheet, paper mm (sheet coordinates).",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "anchor": {
+                  "description": "Which point of the placed box lands on x/y: center (default for views), top_left (default for schedules) or bottom_left.",
+                  "type": "string",
+                  "enum": [
+                    "center",
+                    "top_left",
+                    "bottom_left"
+                  ]
+                },
+                "viewportType": {
+                  "description": "Viewport type name or id (views only), e.g. a type without title.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sheet",
+                "view",
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back every placement. true: failed ones are listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "renumber_sheets",
+      "description": "Renumber and/or rename sheets in bulk by explicit items, findReplace on numbers, or a sequence (prefix + zero-padded counter + suffix over an ordered list). The final numbering is computed first and checked for forbidden characters and collisions (with every other sheet, placeholders included); then numbers are applied in two passes via temporary numbers so swaps like A<->B work. Read back. Use dryRun to preview. Needs approval. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Explicit changes: {sheet, newNumber?, newName?} per sheet, up to 1000.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sheet": {
+                  "description": "Sheet (current number, name or id).",
+                  "type": "string"
+                },
+                "newNumber": {
+                  "description": "New sheet number.",
+                  "type": "string"
+                },
+                "newName": {
+                  "description": "New sheet name.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sheet"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "findReplace": {
+            "description": "Replace text in sheet numbers.",
+            "type": "object",
+            "properties": {
+              "find": {
+                "description": "Text to find in the sheet numbers (case-sensitive).",
+                "type": "string"
+              },
+              "replace": {
+                "description": "Replacement text (may be empty).",
+                "type": "string"
+              },
+              "sheets": {
+                "description": "Only these sheets (numbers, names or ids). Omit for every sheet whose number contains find.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "find",
+              "replace"
+            ],
+            "additionalProperties": false
+          },
+          "sequence": {
+            "description": "Number the given sheets in order: prefix + zero-padded counter + suffix.",
+            "type": "object",
+            "properties": {
+              "sheets": {
+                "description": "Sheets in the order they get numbers (numbers, names or ids).",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "prefix": {
+                "description": "Text before the counter, e.g. \"A-\".",
+                "type": "string"
+              },
+              "start": {
+                "description": "First counter value (default 1).",
+                "type": "integer",
+                "default": 1
+              },
+              "step": {
+                "description": "Counter increment (default 1).",
+                "type": "integer",
+                "default": 1
+              },
+              "digits": {
+                "description": "Zero-pad the counter to this many digits (default 2: 01, 02...).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6,
+                "default": 2
+              },
+              "suffix": {
+                "description": "Text after the counter.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "sheets"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_category_visibility",
+      "description": "Show/hide categories (and subcategories as \"Category: Sub\") and apply category graphic overrides (line colors/weight, surface/cut patterns and colors, transparency, halftone) in views or view templates. Categories by BuiltInCategory or name in any language. Views whose V/G is controlled by a template are refused with the template name (apply to the template instead). Read back per view. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "views": {
+            "description": "Views or view templates (names or ids), up to 200.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "categories": {
+            "description": "Categories in any language (OST_Furniture, Furniture, Mobiliário); a subcategory as \"Category: Subcategory\".",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hidden": {
+            "description": "true hides the categories, false shows them. Omit to leave visibility alone.",
+            "type": "boolean"
+          },
+          "overrides": {
+            "description": "Graphic overrides to apply to the categories (only the given fields change).",
+            "type": "object",
+            "properties": {
+              "projectionLineColor": {
+                "description": "Projection line color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "projectionLineWeight": {
+                "description": "Projection line weight (pen number 1-16).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "cutLineColor": {
+                "description": "Cut line color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "surfaceColor": {
+                "description": "Surface foreground pattern color as \"#RRGGBB\" (needs a surfacePattern, e.g. \"solid\").",
+                "type": "string"
+              },
+              "surfacePattern": {
+                "description": "Surface foreground fill pattern name or id; \"solid\" for the solid fill; \"none\" to clear.",
+                "type": "string"
+              },
+              "cutColor": {
+                "description": "Cut foreground pattern color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "cutPattern": {
+                "description": "Cut foreground fill pattern name or id; \"solid\" for the solid fill; \"none\" to clear.",
+                "type": "string"
+              },
+              "transparency": {
+                "description": "Surface transparency in percent, 0-100.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "halftone": {
+                "description": "Draw in halftone.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "clearOverrides": {
+            "description": "Reset the categories' overrides before applying overrides (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "atomic": {
+            "description": "true (default): any failure rolls the whole call back. false: failures are reported per view/category.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "views",
+          "categories"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "set_elements_pinned",
       "description": "Pins or unpins elements by id in the target document. Elements already in the requested state are reported as unchanged; ids that don't exist are reported as notFound. Undo with Ctrl+Z or by calling it again with the opposite value. Supports dryRun.",
       "kind": "write",
@@ -589,6 +2285,63 @@
       }
     },
     {
+      "name": "set_titleblock_parameters",
+      "description": "Fill title block data in batch: per sheet, parameter values by name written to the sheet or to its title block instance (auto picks the owner that has the parameter). Uses the set_parameters engine: wire units, read-back with 'mismatch', atomic by default, revert[] returned. Title block TYPE parameters (shared by every sheet of that type) are not written here: use set_type_parameters. Undo: Ctrl+Z or send revert[] to set_parameters.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "One entry per sheet, up to 500 sheets.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sheet": {
+                  "description": "Sheet number, name or id.",
+                  "type": "string"
+                },
+                "parameters": {
+                  "description": "Values by parameter name, e.g. {\"Desenhado por\": \"AE\", \"Data de emissão da folha\": \"2026-10-17\"}. Same value rules as set_parameters.",
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "target": {
+                  "description": "auto (default: the sheet if it has the parameter, else the title block instance), sheet or titleblock.",
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "sheet",
+                    "titleblock"
+                  ],
+                  "default": "auto"
+                }
+              },
+              "required": [
+                "sheet",
+                "parameters"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "atomic": {
+            "description": "true (default): any invalid or refused value rolls the whole call back. false: valid writes are kept and the rest reported.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "set_type_parameters",
       "description": "Write TYPE parameter values (affects every instance of the type; result reports instancesAffected). elementId may be a type id or an instance id (its type is used). Same rules as set_parameters: guid/builtIn/name references, wire units (mm, m2, m3, deg, %), read-back with 'mismatch', atomic by default, critical parameters blocked unless allowCritical. Needs human approval. Undo: Ctrl+Z, or send revert[] back to this tool.",
       "kind": "write",
@@ -689,6 +2442,296 @@
             "default": false
           }
         },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_view_crop",
+      "description": "Set the crop of up to 200 views: cropActive, cropVisible, annotationCropActive, a model-XY rectangle in mm (plans), or fitElementIds + padding mm (any view; projected through the view's crop transform), or a scope box (\"none\" removes it; a scope box overrides a manual crop). Returns the crop before and after, read back. Atomic by default. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "views": {
+            "description": "Views (names or ids), up to 200.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cropActive": {
+            "description": "Turn the crop region on or off.",
+            "type": "boolean"
+          },
+          "cropVisible": {
+            "description": "Show or hide the crop region boundary.",
+            "type": "boolean"
+          },
+          "annotationCropActive": {
+            "description": "Turn the annotation crop on or off (plans, sections, elevations).",
+            "type": "boolean"
+          },
+          "rect": {
+            "description": "New crop rectangle in model XY (mm). Plans only (for other views use fitElementIds). Turns the crop on.",
+            "type": "object",
+            "properties": {
+              "min": {
+                "description": "Lower-left corner in model coordinates (mm).",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate in mm (project internal origin).",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate in mm (project internal origin).",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              },
+              "max": {
+                "description": "Upper-right corner in model coordinates (mm).",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate in mm (project internal origin).",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate in mm (project internal origin).",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "additionalProperties": false
+          },
+          "fitElementIds": {
+            "description": "Crop each view to these elements' extents as seen in the view, plus padding. Turns the crop on.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "padding": {
+            "description": "Margin around fitElementIds, in mm (default 300).",
+            "type": "number",
+            "x-unit": "mm",
+            "default": 300
+          },
+          "scopeBox": {
+            "description": "Scope box name or id to assign (it then drives the crop), or \"none\" to remove it.",
+            "type": "string"
+          },
+          "atomic": {
+            "description": "true (default): any view that fails rolls the whole call back. false: failures are reported per view.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "views"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_view_properties",
+      "description": "Change view properties on up to 200 views: scale (100 = 1:100), detailLevel, displayStyle, discipline, phase, phaseFilter, and newName for a single view. Every value is read back and returned as before/after; properties locked by a view template are reported as blocked with the template name. Atomic by default. Undo: Ctrl+Z, or call again with the 'before' values.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "views": {
+            "description": "Views (names or ids), up to 200.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scale": {
+            "description": "Scale denominator (100 = 1:100).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24000
+          },
+          "detailLevel": {
+            "description": "coarse, medium or fine.",
+            "type": "string",
+            "enum": [
+              "coarse",
+              "medium",
+              "fine"
+            ]
+          },
+          "displayStyle": {
+            "description": "Visual style: wireframe, hidden_line, shaded, shaded_with_edges, consistent_colors, realistic.",
+            "type": "string",
+            "enum": [
+              "wireframe",
+              "hidden_line",
+              "shaded",
+              "shaded_with_edges",
+              "consistent_colors",
+              "realistic"
+            ]
+          },
+          "discipline": {
+            "description": "View discipline: architectural, structural, mechanical, electrical, plumbing or coordination.",
+            "type": "string",
+            "enum": [
+              "architectural",
+              "structural",
+              "mechanical",
+              "electrical",
+              "plumbing",
+              "coordination"
+            ]
+          },
+          "phase": {
+            "description": "Phase name or id shown by the view.",
+            "type": "string"
+          },
+          "phaseFilter": {
+            "description": "Phase filter name or id (e.g. \"Show All\" / \"Mostrar tudo\").",
+            "type": "string"
+          },
+          "newName": {
+            "description": "Rename the view (only with a single view). Must be free among views of its type.",
+            "type": "string"
+          },
+          "atomic": {
+            "description": "true (default): any property that doesn't stick rolls the whole call back. false: the rest is kept and failures are reported per view.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "views"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_view_range",
+      "description": "Set the view range of plan views: top, cut, bottom and viewDepth, each {level, offset mm} where level is a level name/id, \"current\", \"above\" or \"unlimited\". Unspecified parts are kept. Elevations are checked top >= cut >= bottom >= depth before writing; plans whose range is controlled by a view template are refused with the template name. Returns old and new ranges. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "views": {
+            "description": "Plan views (names or ids), up to 200.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "top": {
+            "description": "Top clip plane.",
+            "type": "object",
+            "properties": {
+              "level": {
+                "description": "Level the plane is measured from: a level name or id, \"current\" (the view's level, default), \"above\" (level above) or \"unlimited\" (top/depth only).",
+                "type": "string"
+              },
+              "offset": {
+                "description": "Offset from that level, in mm (default: keep the current offset).",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "additionalProperties": false
+          },
+          "cut": {
+            "description": "Cut plane (e.g. offset 1200 from the current level).",
+            "type": "object",
+            "properties": {
+              "level": {
+                "description": "Level the plane is measured from: a level name or id, \"current\" (the view's level, default), \"above\" (level above) or \"unlimited\" (top/depth only).",
+                "type": "string"
+              },
+              "offset": {
+                "description": "Offset from that level, in mm (default: keep the current offset).",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "additionalProperties": false
+          },
+          "bottom": {
+            "description": "Bottom clip plane.",
+            "type": "object",
+            "properties": {
+              "level": {
+                "description": "Level the plane is measured from: a level name or id, \"current\" (the view's level, default), \"above\" (level above) or \"unlimited\" (top/depth only).",
+                "type": "string"
+              },
+              "offset": {
+                "description": "Offset from that level, in mm (default: keep the current offset).",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "additionalProperties": false
+          },
+          "viewDepth": {
+            "description": "View depth plane (must be at or below bottom).",
+            "type": "object",
+            "properties": {
+              "level": {
+                "description": "Level the plane is measured from: a level name or id, \"current\" (the view's level, default), \"above\" (level above) or \"unlimited\" (top/depth only).",
+                "type": "string"
+              },
+              "offset": {
+                "description": "Offset from that level, in mm (default: keep the current offset).",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "additionalProperties": false
+          },
+          "atomic": {
+            "description": "true (default): any view that fails rolls the whole call back. false: failures are reported per view.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "views"
+        ],
         "additionalProperties": false
       }
     }
