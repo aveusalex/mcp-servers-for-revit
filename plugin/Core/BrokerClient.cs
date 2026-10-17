@@ -203,6 +203,10 @@ namespace revit_mcp_plugin.Core
         {
             var buffer = new byte[8192];
             var sb = new StringBuilder();
+            // A stateful decoder keeps multi-byte UTF-8 characters (accents) that
+            // straddle an 8 KB frame boundary intact.
+            var decoder = Encoding.UTF8.GetDecoder();
+            var chars = new char[Encoding.UTF8.GetMaxCharCount(buffer.Length)];
             WebSocketReceiveResult result;
             do
             {
@@ -212,7 +216,8 @@ namespace revit_mcp_plugin.Core
                     await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
                     return null;
                 }
-                sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                int charCount = decoder.GetChars(buffer, 0, result.Count, chars, 0, result.EndOfMessage);
+                sb.Append(chars, 0, charCount);
             }
             while (!result.EndOfMessage);
             return sb.ToString();

@@ -10,7 +10,7 @@ namespace RevitMCPCommandSet.Models.Links
     public class RevitLinkInfo
     {
         public string LinkInstanceUniqueId { get; set; }
-        public int LinkInstanceElementId { get; set; }
+        public long LinkInstanceElementId { get; set; }
         public string LinkTypeUniqueId { get; set; }
         public string Name { get; set; }
         public string SourcePath { get; set; }

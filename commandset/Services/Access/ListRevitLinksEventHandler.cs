@@ -132,7 +132,7 @@ namespace RevitMCPCommandSet.Services.Access
             var info = new RevitLinkInfo
             {
                 LinkInstanceUniqueId = effectiveInstance.UniqueId,
-                LinkInstanceElementId = effectiveInstance.Id.IntegerValue,
+                LinkInstanceElementId = effectiveInstance.Id.GetValue(),
                 LinkTypeUniqueId = effectiveType?.UniqueId,
                 Name = effectiveInstance.Name,
                 SourcePath = SourcePathOf(effectiveType),
