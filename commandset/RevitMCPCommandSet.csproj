@@ -63,6 +63,16 @@
       <Reference Include="System.Net.Http" />
     </ItemGroup>
 
+    <!-- Tool argument POCOs use [Required]/[Range]/[MinLength]/[MaxLength] (built into .NET 8). -->
+    <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+      <Reference Include="System.ComponentModel.DataAnnotations" />
+    </ItemGroup>
+
+    <!-- Same builder as tools/ManifestGen, so the runtime manifest and capabilityHash match the committed one. -->
+    <ItemGroup>
+      <Compile Include="..\tools\ManifestGen\Core\ToolManifestBuilder.cs" Link="Framework\Manifest\ToolManifestBuilder.cs" />
+    </ItemGroup>
+
     <Target Name="DeployCommandSet" AfterTargets="Build">
         <PropertyGroup>
             <PluginAddInRoot>$(ProjectDir)..\plugin\bin\AddIn $(RevitVersion) $(Configuration)\revit_mcp_plugin\</PluginAddInRoot>

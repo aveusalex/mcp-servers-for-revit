@@ -13,11 +13,26 @@ namespace RevitMCPCommandSet.Framework
         object Invoke(ToolContext ctx, JObject args);
     }
 
+    /// <summary>Lets execute_batch check every step's arguments before any step runs.</summary>
+    public interface IMcpToolArgsCheck
+    {
+        /// <summary>Binds and validates the arguments without running anything. Throws <see cref="ToolException"/>.</summary>
+        void CheckArgs(JObject args);
+    }
+
+    /// <summary>
+    /// Marks a tool that manages its own transactions (execute_batch): the dispatcher runs it outside any
+    /// transaction and leaves dryRun handling to it.
+    /// </summary>
+    public interface ISelfTransactedTool
+    {
+    }
+
     /// <summary>
     /// Base class for tools. A tool only describes what it does: the dispatcher owns transactions, warnings,
     /// dryRun, change tracking, batching and the result envelope.
     /// </summary>
-    public abstract class McpTool<TArgs> : IMcpTool where TArgs : class, new()
+    public abstract class McpTool<TArgs> : IMcpTool, IMcpToolArgsCheck where TArgs : class, new()
     {
         private McpToolAttribute _metadata;
 
@@ -29,18 +44,13 @@ namespace RevitMCPCommandSet.Framework
 
         public object Invoke(ToolContext ctx, JObject args)
         {
-            TArgs bound;
-            try
-            {
-                bound = (args ?? new JObject()).ToObject<TArgs>() ?? new TArgs();
-            }
-            catch (Exception ex)
-            {
-                throw new ToolException("INVALID_ARGUMENTS", $"Arguments for '{Metadata.Name}' are invalid: {ex.Message}");
-            }
-
-            Validate(bound);
+            var bound = Bind(args);
             return Run(ctx, bound);
+        }
+
+        public void CheckArgs(JObject args)
+        {
+            Bind(args);
         }
 
         protected virtual void Validate(TArgs args)
@@ -48,5 +58,25 @@ namespace RevitMCPCommandSet.Framework
         }
 
         protected abstract object Run(ToolContext ctx, TArgs args);
+
+        private TArgs Bind(JObject args)
+        {
+            TArgs bound;
+            try
+            {
+                bound = ArgsBinder.Bind<TArgs>(args);
+            }
+            catch (ToolException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new ToolException(ToolErrorCodes.InvalidArguments, $"Arguments for '{Metadata.Name}' are invalid: {ex.Message}");
+            }
+
+            Validate(bound);
+            return bound;
+        }
     }
 }

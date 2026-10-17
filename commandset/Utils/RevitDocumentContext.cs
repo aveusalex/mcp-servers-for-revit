@@ -52,6 +52,45 @@ namespace RevitMCPCommandSet.Utils
             return uiApp?.ActiveUIDocument?.Document;
         }
 
+        /// <summary>
+        /// The open, non-linked document whose docId is <paramref name="docId"/>, or null. Unlike
+        /// <see cref="ResolveDocument(UIApplication)"/> it never falls back to the active document, so a call aimed
+        /// at a document that was closed can't land on another one. Used by the tool framework, which captures
+        /// the docId when the request is queued.
+        /// </summary>
+        public static Document TryResolveDocument(UIApplication uiApp, string docId)
+        {
+            if (string.IsNullOrEmpty(docId) || uiApp == null) return null;
+            foreach (Document doc in uiApp.Application.Documents)
+            {
+                if (doc.IsLinked) continue;
+                try
+                {
+                    if (DocIdOf(doc) == docId)
+                        return doc;
+                }
+                catch
+                {
+                    // documents without ProjectInformation; skip
+                }
+            }
+            return null;
+        }
+
+        /// <summary>The broker docId of a document (same rule as the plugin), or null when it has none.</summary>
+        public static string GetDocId(Document doc)
+        {
+            if (doc == null) return null;
+            try
+            {
+                return DocIdOf(doc);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         /// <summary>docId currently requested by the broker, or null.</summary>
         public static string CurrentTargetDocId =>
             AppDomain.CurrentDomain.GetData(TargetKey) as string;

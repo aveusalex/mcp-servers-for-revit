@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+      Tests for the Revit-free logic of the tool framework (commandset/Framework): step references, batch policy,
+      the request queue, change accumulation, argument binding and contract checks, envelope JSON.
+      No Revit reference: the pure source files are linked, never the command-set assembly.
+      Run: dotnet test tests/framework
+    -->
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <Configurations>Debug;Release</Configurations>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="xunit.v3" Version="3.2.2" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="..\..\commandset\Framework\McpToolAttribute.cs" Link="Linked\McpToolAttribute.cs" />
+        <Compile Include="..\..\commandset\Framework\ToolException.cs" Link="Linked\ToolException.cs" />
+        <Compile Include="..\..\commandset\Framework\ToolResult.cs" Link="Linked\ToolResult.cs" />
+        <Compile Include="..\..\commandset\Framework\ToolErrors.cs" Link="Linked\ToolErrors.cs" />
+        <Compile Include="..\..\commandset\Framework\EnvelopeJson.cs" Link="Linked\EnvelopeJson.cs" />
+        <Compile Include="..\..\commandset\Framework\Schema\*.cs" Link="Linked\Schema\%(Filename)%(Extension)" />
+        <Compile Include="..\..\commandset\Framework\Manifest\*.cs" Link="Linked\Manifest\%(Filename)%(Extension)" />
+        <Compile Include="..\..\commandset\Framework\Dispatch\RequestQueue.cs" Link="Linked\RequestQueue.cs" />
+        <Compile Include="..\..\commandset\Framework\Batch\StepReferences.cs" Link="Linked\StepReferences.cs" />
+        <Compile Include="..\..\commandset\Framework\Batch\BatchPolicy.cs" Link="Linked\BatchPolicy.cs" />
+        <Compile Include="..\..\commandset\Framework\Changes\ChangeAccumulator.cs" Link="Linked\ChangeAccumulator.cs" />
+        <Compile Include="..\..\commandset\Tools\Core\ExecuteBatchArgs.cs" Link="Linked\Tools\ExecuteBatchArgs.cs" />
+        <Compile Include="..\..\commandset\Tools\Editing\SetElementsPinnedArgs.cs" Link="Linked\Tools\SetElementsPinnedArgs.cs" />
+        <Compile Include="..\..\tools\ManifestGen\Core\ToolManifestBuilder.cs" Link="Linked\ToolManifestBuilder.cs" />
+    </ItemGroup>
+
+</Project>
