@@ -164,9 +164,6 @@ namespace RevitMCPCommandSet.Services
                     }
                     break;
                 case BuiltInCategory.OST_Ceilings:
-#if !REVIT2022_OR_GREATER
-                    throw new NotSupportedException("Creating ceilings needs Revit 2022 or later.");
-#else
                     if (ceilingType == null)
                     {
                         // Get default ceiling type if not specified
@@ -182,7 +179,6 @@ namespace RevitMCPCommandSet.Services
                         }
                     }
                     break;
-#endif
                 default:
                     throw new ArgumentException(
                         $"Unsupported category '{data.Category}'. Use OST_Floors, OST_Roofs or OST_Ceilings, or give the typeId of a floor, roof or ceiling type.");
@@ -240,7 +236,6 @@ namespace RevitMCPCommandSet.Services
                         }
                         created = roof;
                         break;
-#if REVIT2022_OR_GREATER
                     case BuiltInCategory.OST_Ceilings:
                         CurveLoop ceilingCurveLoop = CurveLoop.Create(data.Boundary.OuterLoop.Select(l => JZLine.ToLine(l) as Curve).ToList());
                         Ceiling ceiling = Ceiling.Create(doc, new List<CurveLoop> { ceilingCurveLoop }, ceilingType.Id, baseLevel.Id);
@@ -255,7 +250,6 @@ namespace RevitMCPCommandSet.Services
                         }
                         created = ceiling;
                         break;
-#endif
                 }
 
                 if (created == null)
