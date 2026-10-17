@@ -1,7 +1,162 @@
 {
   "version": 1,
-  "capabilityHash": "e4898ec89fd33adcaad12c3757f432536b871b49610de82713e5331eafaf0071",
+  "capabilityHash": "e6ea373064804af1e7aaf882dd8425df4068a8bccd652edc953168261f336a41",
   "tools": [
+    {
+      "name": "clear_graphic_overrides",
+      "description": "Clear graphic overrides in a view: of given elements, of given categories (any language), or of every element in the view (all) and optionally every category (allCategories); optionally unhide them too. View filter overrides are not touched (set_view_filter). Returns how many elements/categories were reset. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View (name or id).",
+            "type": "string"
+          },
+          "elementIds": {
+            "description": "Elements whose overrides are cleared.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "categories": {
+            "description": "Categories whose overrides are cleared, in any language.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "all": {
+            "description": "Clear every element override in the view (and every category override when allCategories). Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "allCategories": {
+            "description": "With all: also clear every category override of the view (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "unhide": {
+            "description": "Also unhide the given elements/categories (default false).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "view"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "color_elements_by_parameter",
+      "description": "Colour the elements of some categories visible in a view by the value of a parameter (instance, then type): distinct palette colours per value, an explicit colorMap {value: \"#RRGGBB\"}, or a gradient for numeric values (sorted numerically). Colours surfaces (solid fill), lines, or both, merging with existing overrides. Returns the legend: value, colour, element count. Undo: Ctrl+Z or clear_graphic_overrides.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View (name or id) where the colours are applied.",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Categories to colour, in any language (OST_Walls, Walls, Paredes).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parameter": {
+            "description": "Parameter whose value picks the colour: {builtIn} | {guid} | {name}; read on the instance, then on its type.",
+            "type": "object",
+            "properties": {
+              "guid": {
+                "description": "Shared parameter GUID. Wins over builtIn and name.",
+                "type": "string"
+              },
+              "builtIn": {
+                "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                "type": "string"
+              },
+              "name": {
+                "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "colorMap": {
+            "description": "Explicit colours by value, e.g. {\"Demolir\": \"#FF0000\"} (value as Revit displays it, or the wire value; case and accents ignored). Other values get palette colours unless onlyMapped.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "gradient": {
+            "description": "For numeric parameters: interpolate from/to colours between the smallest and largest value instead of a palette.",
+            "type": "object",
+            "properties": {
+              "from": {
+                "description": "Colour of the smallest value (\"#RRGGBB\").",
+                "type": "string"
+              },
+              "to": {
+                "description": "Colour of the largest value (\"#RRGGBB\").",
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": false
+          },
+          "onlyMapped": {
+            "description": "Colour only the values listed in colorMap (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "noValueColor": {
+            "description": "Colour for elements without the parameter or with an empty value. Default: leave them as they are.",
+            "type": "string"
+          },
+          "target": {
+            "description": "What to colour: surface (default, solid foreground fill of surfaces and cuts), lines, or both.",
+            "type": "string",
+            "enum": [
+              "surface",
+              "lines",
+              "both"
+            ],
+            "default": "surface"
+          },
+          "elementIds": {
+            "description": "Only these elements (ids) among those visible in the view.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "view",
+          "categories",
+          "parameter"
+        ],
+        "additionalProperties": false
+      }
+    },
     {
       "name": "create_schedule",
       "description": "Create a schedule (regular, material takeoff, key, sheet list or view list) for a category in any language, with fields in order (heading, hidden, width mm, alignment, totals), filters (eq, neq, gt/gte/lt/lte in mm/m2/m3/deg, contains, begins_with, ends_with, has_value...), sorting/grouping (header, footer, blank line), itemization and grand total. Fields are resolved before anything is created; returns the definition read back. Undo: Ctrl+Z or delete the returned schedule id.",
@@ -103,7 +258,7 @@
               "type": "object",
               "properties": {
                 "field": {
-                  "description": "Field already in the schedule (it may be hidden): its heading or name, or {builtIn}/{guid}/{name}.",
+                  "description": "Field already in the schedule (it may be hidden): {name: column heading or field name} | {builtIn} | {guid}.",
                   "type": "object",
                   "properties": {
                     "guid": {
@@ -159,7 +314,7 @@
               "type": "object",
               "properties": {
                 "field": {
-                  "description": "Field already in the schedule: its heading or name, or {builtIn}/{guid}/{name}.",
+                  "description": "Field already in the schedule: {name: column heading or field name} | {builtIn} | {guid}.",
                   "type": "object",
                   "properties": {
                     "guid": {
@@ -413,6 +568,266 @@
         "required": [
           "view",
           "notes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_view_filter",
+      "description": "Create a rule-based view filter: categories in any language and parameter rules (builtIn/guid/name; eq, neq, gt/gte/lt/lte with numbers in mm/m2/m3/deg, contains, begins_with, ends_with and negations, has_value/has_no_value) combined with and/or. The parameter must be common to all the categories. ifExists error/reuse/update. Optionally applies it to a view or template with visibility and overrides. Undo: Ctrl+Z or delete the filter.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Filter name, unique among filters.",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Categories the filter applies to, in any language (OST_Walls, Walls, Paredes).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rules": {
+            "description": "Parameter rules (up to 20). Omit for a category-only filter.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "parameter": {
+                  "description": "Parameter common to every category of the filter: {builtIn} (language-neutral), {guid} (shared) or {name} as Revit shows it.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "op": {
+                  "description": "Operator. Numbers are in wire units (mm, m2, m3, deg); text compares ignore case.",
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "neq",
+                    "gt",
+                    "gte",
+                    "lt",
+                    "lte",
+                    "contains",
+                    "not_contains",
+                    "begins_with",
+                    "not_begins_with",
+                    "ends_with",
+                    "not_ends_with",
+                    "has_value",
+                    "has_no_value"
+                  ]
+                },
+                "value": {
+                  "description": "Value to compare with (not for has_value/has_no_value): number in wire units, text, true/false, or an element name/id for element parameters (level, material, phase)."
+                }
+              },
+              "required": [
+                "parameter",
+                "op"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "logic": {
+            "description": "and (default): every rule must match. or: any rule.",
+            "type": "string",
+            "enum": [
+              "and",
+              "or"
+            ],
+            "default": "and"
+          },
+          "ifExists": {
+            "description": "When a filter with this name exists: error (default), reuse (leave it as is) or update (replace its categories and rules).",
+            "type": "string",
+            "enum": [
+              "error",
+              "reuse",
+              "update"
+            ],
+            "default": "error"
+          },
+          "applyTo": {
+            "description": "Optionally apply the filter right away to a view or template, with visibility and overrides.",
+            "type": "object",
+            "properties": {
+              "view": {
+                "description": "View (name or id) to apply the filter to. Give view or template.",
+                "type": "string"
+              },
+              "template": {
+                "description": "View template (name or id) to apply the filter to.",
+                "type": "string"
+              },
+              "visible": {
+                "description": "Show (true) or hide (false) the filtered elements.",
+                "type": "boolean"
+              },
+              "overrides": {
+                "description": "Graphic overrides for the filtered elements.",
+                "type": "object",
+                "properties": {
+                  "projectionLine": {
+                    "description": "Projection (surface) lines.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "weight": {
+                        "description": "Line weight (pen number) 1-16.",
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 16
+                      },
+                      "pattern": {
+                        "description": "Line pattern name or id (\"Solid\" for continuous).",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "cutLine": {
+                    "description": "Cut lines.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "weight": {
+                        "description": "Line weight (pen number) 1-16.",
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 16
+                      },
+                      "pattern": {
+                        "description": "Line pattern name or id (\"Solid\" for continuous).",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "surfaceForeground": {
+                    "description": "Surface foreground pattern.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "pattern": {
+                        "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                        "type": "string"
+                      },
+                      "visible": {
+                        "description": "Show or hide this pattern.",
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "surfaceBackground": {
+                    "description": "Surface background pattern.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "pattern": {
+                        "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                        "type": "string"
+                      },
+                      "visible": {
+                        "description": "Show or hide this pattern.",
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "cutForeground": {
+                    "description": "Cut foreground pattern.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "pattern": {
+                        "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                        "type": "string"
+                      },
+                      "visible": {
+                        "description": "Show or hide this pattern.",
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "cutBackground": {
+                    "description": "Cut background pattern.",
+                    "type": "object",
+                    "properties": {
+                      "color": {
+                        "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                        "type": "string"
+                      },
+                      "pattern": {
+                        "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                        "type": "string"
+                      },
+                      "visible": {
+                        "description": "Show or hide this pattern.",
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "transparency": {
+                    "description": "Surface transparency, 0 (opaque) to 100.",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "halftone": {
+                    "description": "Draw in halftone.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "categories"
         ],
         "additionalProperties": false
       }
@@ -1170,7 +1585,7 @@
                   ]
                 },
                 "field": {
-                  "description": "add: {builtIn}/{guid}/{name} of a schedulable field (see get_schedulable_fields). Others: the column heading or name of a field in the schedule.",
+                  "description": "add: {builtIn}/{guid}/{name} of a schedulable field (see get_schedulable_fields). Others: {name: column heading or field name} | {builtIn} | {guid} of a field in the schedule.",
                   "type": "object",
                   "properties": {
                     "guid": {
@@ -1265,6 +1680,187 @@
         "required": [
           "elementIds",
           "pinned"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_graphic_overrides",
+      "description": "Override graphics of elements and/or categories in one view: projection/cut lines (colour #RRGGBB, weight 1-16, pattern), surface/cut foreground and background patterns (colour, pattern or \"solid\", visible), transparency 0-100, halftone, and hide/unhide. Merges with the existing overrides by default (nothing given is reset). Category overrides fail with VIEW_CONTROLLED_BY_TEMPLATE when the view template controls them. Returns the overrides read back. Undo: Ctrl+Z or clear_graphic_overrides.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View (name or id) where the overrides apply.",
+            "type": "string"
+          },
+          "elementIds": {
+            "description": "Elements to override (ids, up to 5000). Give elementIds and/or categories.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "categories": {
+            "description": "Categories to override in the view, in any language (OST_Walls, Walls, Paredes).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "overrides": {
+            "description": "Overrides to set. Only what is given changes (see merge).",
+            "type": "object",
+            "properties": {
+              "projectionLine": {
+                "description": "Projection (surface) lines.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "weight": {
+                    "description": "Line weight (pen number) 1-16.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  "pattern": {
+                    "description": "Line pattern name or id (\"Solid\" for continuous).",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutLine": {
+                "description": "Cut lines.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "weight": {
+                    "description": "Line weight (pen number) 1-16.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  "pattern": {
+                    "description": "Line pattern name or id (\"Solid\" for continuous).",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "surfaceForeground": {
+                "description": "Surface foreground pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "surfaceBackground": {
+                "description": "Surface background pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutForeground": {
+                "description": "Cut foreground pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutBackground": {
+                "description": "Cut background pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "transparency": {
+                "description": "Surface transparency, 0 (opaque) to 100.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "halftone": {
+                "description": "Draw in halftone.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "merge": {
+            "description": "true (default): keep the current overrides and change only what is given. false: replace them entirely.",
+            "type": "boolean",
+            "default": true
+          },
+          "visible": {
+            "description": "Hide (false) or unhide (true) the elements/categories in the view.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "view"
         ],
         "additionalProperties": false
       }
@@ -1396,7 +1992,7 @@
               "type": "object",
               "properties": {
                 "field": {
-                  "description": "Field already in the schedule (it may be hidden): its heading or name, or {builtIn}/{guid}/{name}.",
+                  "description": "Field already in the schedule (it may be hidden): {name: column heading or field name} | {builtIn} | {guid}.",
                   "type": "object",
                   "properties": {
                     "guid": {
@@ -1452,7 +2048,7 @@
               "type": "object",
               "properties": {
                 "field": {
-                  "description": "Field already in the schedule: its heading or name, or {builtIn}/{guid}/{name}.",
+                  "description": "Field already in the schedule: {name: column heading or field name} | {builtIn} | {guid}.",
                   "type": "object",
                   "properties": {
                     "guid": {
@@ -1649,6 +2245,195 @@
             "default": false
           }
         },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_view_filter",
+      "description": "Apply, update or remove a view filter on a view or a view template, with visibility, enabled state and graphic overrides (line colour/weight/pattern, surface/cut patterns, transparency, halftone). Overrides are merged with the current ones by default. A view whose template controls filters fails with VIEW_CONTROLLED_BY_TEMPLATE: target the template. Returns the overrides read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View (name or id). Give view or template.",
+            "type": "string"
+          },
+          "template": {
+            "description": "View template (name or id), to change every view that uses it. Give view or template.",
+            "type": "string"
+          },
+          "filter": {
+            "description": "Filter (rule-based or selection) by name or id.",
+            "type": "string"
+          },
+          "operation": {
+            "description": "add (default; updates if already applied), update (must be applied) or remove (from the view; the filter definition is kept).",
+            "type": "string",
+            "enum": [
+              "add",
+              "update",
+              "remove"
+            ],
+            "default": "add"
+          },
+          "visible": {
+            "description": "Show (true) or hide (false) the elements that pass the filter.",
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "Enable or disable the filter in the view without removing it.",
+            "type": "boolean"
+          },
+          "overrides": {
+            "description": "Graphic overrides for the filtered elements.",
+            "type": "object",
+            "properties": {
+              "projectionLine": {
+                "description": "Projection (surface) lines.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "weight": {
+                    "description": "Line weight (pen number) 1-16.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  "pattern": {
+                    "description": "Line pattern name or id (\"Solid\" for continuous).",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutLine": {
+                "description": "Cut lines.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Line colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "weight": {
+                    "description": "Line weight (pen number) 1-16.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  "pattern": {
+                    "description": "Line pattern name or id (\"Solid\" for continuous).",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "surfaceForeground": {
+                "description": "Surface foreground pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "surfaceBackground": {
+                "description": "Surface background pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutForeground": {
+                "description": "Cut foreground pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "cutBackground": {
+                "description": "Cut background pattern.",
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "description": "Pattern colour: \"#RRGGBB\" or \"r,g,b\".",
+                    "type": "string"
+                  },
+                  "pattern": {
+                    "description": "Fill pattern name or id (\"solid\" for a solid fill, in any language).",
+                    "type": "string"
+                  },
+                  "visible": {
+                    "description": "Show or hide this pattern.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "transparency": {
+                "description": "Surface transparency, 0 (opaque) to 100.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "halftone": {
+                "description": "Draw in halftone.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "merge": {
+            "description": "true (default): keep the filter's current overrides and change only what is given. false: replace them.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "filter"
+        ],
         "additionalProperties": false
       }
     },

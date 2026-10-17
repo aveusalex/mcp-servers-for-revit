@@ -50,7 +50,7 @@ namespace RevitMCPCommandSet.Tools.Schedules.Support
     public sealed class ScheduleFilterSpec
     {
         [JsonProperty("field", Required = Required.Always)]
-        [Description("Field already in the schedule (it may be hidden): its heading or name, or {builtIn}/{guid}/{name}.")]
+        [Description("Field already in the schedule (it may be hidden): {name: column heading or field name} | {builtIn} | {guid}.")]
         public ParameterRef Field { get; set; }
 
         [JsonProperty("op", Required = Required.Always)]
@@ -68,7 +68,7 @@ namespace RevitMCPCommandSet.Tools.Schedules.Support
     public sealed class ScheduleSortSpec
     {
         [JsonProperty("field", Required = Required.Always)]
-        [Description("Field already in the schedule: its heading or name, or {builtIn}/{guid}/{name}.")]
+        [Description("Field already in the schedule: {name: column heading or field name} | {builtIn} | {guid}.")]
         public ParameterRef Field { get; set; }
 
         [JsonProperty("order")]

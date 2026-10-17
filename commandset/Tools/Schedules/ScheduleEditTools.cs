@@ -21,7 +21,7 @@ namespace RevitMCPCommandSet.Tools.Schedules
         public string Op { get; set; }
 
         [JsonProperty("field", Required = Required.Always)]
-        [Description("add: {builtIn}/{guid}/{name} of a schedulable field (see get_schedulable_fields). Others: the column heading or name of a field in the schedule.")]
+        [Description("add: {builtIn}/{guid}/{name} of a schedulable field (see get_schedulable_fields). Others: {name: column heading or field name} | {builtIn} | {guid} of a field in the schedule.")]
         public ParameterRef Field { get; set; }
 
         [JsonProperty("fieldType")]
