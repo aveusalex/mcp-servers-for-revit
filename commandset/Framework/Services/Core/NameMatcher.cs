@@ -63,10 +63,19 @@ namespace RevitMCPCommandSet.Framework.Services
 
         public static ToolException NotFound(string query, IEnumerable<string> names, string what)
         {
-            var suggestions = TextMatch.Suggest(query, names);
-            var hint = suggestions.Count > 0
-                ? "Did you mean: " + string.Join(", ", suggestions.Select(s => $"'{s}'")) + "?"
-                : $"List the available {what} names first.";
+            var all = (names ?? Enumerable.Empty<string>()).Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.Ordinal).ToList();
+            var suggestions = TextMatch.Suggest(query, all);
+            string hint;
+            if (suggestions.Count > 0)
+                hint = "Did you mean: " + string.Join(", ", suggestions.Select(s => $"'{s}'")) + "?";
+            else if (all.Count == 0)
+                hint = $"This document has no {what} at all; it must be created or loaded first.";
+            else
+                // No close match: show what exists, so the caller doesn't need another round trip to list them.
+                hint = $"Available ({all.Count}): " +
+                       string.Join(", ", all.OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase).Take(MaxListed).Select(n => $"'{n}'")) +
+                       (all.Count > MaxListed ? $" … and {all.Count - MaxListed} more." : ".");
             return new ToolException("NOT_FOUND", $"No {what} named '{query}' was found.", hint);
         }
 

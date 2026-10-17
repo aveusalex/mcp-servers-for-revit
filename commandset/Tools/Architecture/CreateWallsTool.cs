@@ -238,12 +238,26 @@ namespace RevitMCPCommandSet.Tools.Architecture
 
                 if (keyRef != WallLocationLine.WallCenterline)
                 {
-                    // Changing the location line keeps the wall body where it is and moves the location curve to the
-                    // new reference; putting the curve back on the requested line moves the body instead.
-                    var keyParam = wall.get_Parameter(BuiltInParameter.WALL_KEY_REF_PARAM);
-                    keyParam.Set((int)keyRef);
+                    // Put the body where the requested reference lies on the given line, explicitly: shift the
+                    // centerline toward the exterior by the reference's distance from the center (finish interior
+                    // = +W/2), then switch the location line. Whether Revit then keeps the body or the curve, the
+                    // last check puts the curve back on the given line (live test: relying on the parameter
+                    // alone left the walls centred on the outline).
+                    double offset = ReferenceOffsetFromCenter(wall, keyRef); // + toward exterior
+                    var exterior = wall.Orientation.Normalize();
+                    var centre = line.CreateTransformed(Transform.CreateTranslation(exterior * -offset));
+                    ((LocationCurve)wall.Location).Curve = centre;
                     doc.Regenerate();
-                    ((LocationCurve)wall.Location).Curve = line;
+
+                    wall.get_Parameter(BuiltInParameter.WALL_KEY_REF_PARAM).Set((int)keyRef);
+                    doc.Regenerate();
+
+                    var now = ((LocationCurve)wall.Location).Curve;
+                    if (now.GetEndPoint(0).DistanceTo(line.GetEndPoint(0)) > 1e-6 ||
+                        now.GetEndPoint(1).DistanceTo(line.GetEndPoint(1)) > 1e-6)
+                    {
+                        ((LocationCurve)wall.Location).Curve = line;
+                    }
                 }
                 if (!item.JoinEnds)
                 {
@@ -268,6 +282,35 @@ namespace RevitMCPCommandSet.Tools.Architecture
             };
         }
 
+        /// <summary>
+        /// Signed distance (feet) from the wall's centerline to the given location line, positive toward the
+        /// exterior side. Uses the type's compound structure; walls without one only know the finish faces.
+        /// </summary>
+        private static double ReferenceOffsetFromCenter(Wall wall, WallLocationLine keyRef)
+        {
+            var cs = wall.WallType.GetCompoundStructure();
+            if (cs != null)
+            {
+                try
+                {
+                    // Revit measures this from the exterior finish face toward the interior; convert to "from the
+                    // centre toward the exterior".
+                    double fromExterior = cs.GetOffsetForLocationLine(keyRef);
+                    return wall.Width / 2 - fromExterior;
+                }
+                catch (Autodesk.Revit.Exceptions.ArgumentException)
+                {
+                    // fall through to the finish-face rule
+                }
+            }
+            switch (keyRef)
+            {
+                case WallLocationLine.FinishFaceExterior: return wall.Width / 2;
+                case WallLocationLine.FinishFaceInterior: return -wall.Width / 2;
+                default: return 0;
+            }
+        }
+
         private static object ReadBack(Document doc, Wall w)
         {
             if (!w.IsValidObject)
@@ -288,7 +331,8 @@ namespace RevitMCPCommandSet.Tools.Architecture
                 topConstraint = top?.Name ?? "unconnected",
                 topOffsetMm = top == null ? (double?)null : ArchGeometry.Mm(ArchGeometry.DoubleParam(w, BuiltInParameter.WALL_TOP_OFFSET)),
                 heightMm = ArchGeometry.Mm(ArchGeometry.DoubleParam(w, BuiltInParameter.WALL_USER_HEIGHT_PARAM)),
-                exteriorDirection = ArchGeometry.ToWire2(w.Orientation),
+                // A direction, not a point: unit vector, not converted to mm.
+                exteriorDirection = new { x = Math.Round(w.Orientation.X, 6), y = Math.Round(w.Orientation.Y, 6) },
                 structural = w.get_Parameter(BuiltInParameter.WALL_STRUCTURAL_SIGNIFICANT)?.AsInteger() == 1
             };
         }

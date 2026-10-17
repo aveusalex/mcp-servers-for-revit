@@ -47,7 +47,7 @@ namespace RevitMCPCommandSet.Tools.QA
     }
 
     /// <summary>QA-05: Purge Unused with a preview by default.</summary>
-    [McpTool("purge_unused", Kind = ToolKind.Write, Risk = Risk.Medium, Toolset = "qa", Batchable = false,
+    [McpTool("purge_unused", Kind = ToolKind.Write, Risk = Risk.Medium, DryRunDefault = true, Toolset = "qa", Batchable = false,
         TimeoutSeconds = 600,
         Description = "Find and (with apply: true) delete unused families, types, materials and patterns - the same list " +
                       "as Revit's Purge Unused on 2024+ (older versions: families and types only). By default it only " +

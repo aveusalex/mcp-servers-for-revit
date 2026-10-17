@@ -162,7 +162,7 @@ namespace RevitMCPCommandSet.Tools.Annotation
             if (element.Category == null)
                 throw new ToolException("INVALID_TARGET", $"'{item.Element}' has no category and cannot be tagged.");
             if (element is Room room && room.Area <= 0)
-                throw new ToolException("ROOM_NOT_PLACED", $"Room '{room.Name}' is not placed or not enclosed.");
+                throw new ToolException("ROOM_NOT_PLACED", $"Room '{room.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? room.Name}' is not placed or not enclosed.");
 
             var tagType = string.IsNullOrWhiteSpace(item.TagType) ? null : TagSupport.ResolveTagType(ctx, item.TagType, element.Category);
             XYZ point;

@@ -78,6 +78,17 @@ namespace revit_mcp_plugin.Core
         }
 
         /// <summary>
+        /// True when <paramref name="command"/> is a framework tool (listed in the command-set manifest): those
+        /// honour dryRun by rolling everything back. Legacy commands ignore dryRun.
+        /// </summary>
+        public static bool HonoursDryRun(string command)
+        {
+            if (string.IsNullOrEmpty(command)) return false;
+            var manifest = Manifest();
+            return manifest != null && manifest.ContainsKey(command);
+        }
+
+        /// <summary>
         /// Parsed command-set manifest (<see cref="CommandManager.GetToolsManifest"/>, which reads
         /// ToolRegistry.GetManifestJson() by reflection), cached once found. Null while the command set is not
         /// loadable or predates the framework; retried on the next call.

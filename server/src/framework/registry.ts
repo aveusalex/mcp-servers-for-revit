@@ -183,6 +183,33 @@ interface FrameworkToolSpec {
   meta?: Record<string, unknown>;
 }
 
+const enumKey = (s: string): string => s.toLowerCase().replace(/[\s_\-]/g, "");
+
+/**
+ * Tool enums mix styles ("floor_plan", "finishFaceInterior", "all_circuits"). Map a string that matches an enum
+ * value except for case, spaces, '_' or '-' ("floorPlan", "Floor Plan", "finish_face_interior") to that value,
+ * in place, so the model's near-misses don't cost a round trip. Exact values are left alone; anything that
+ * still doesn't match is left for Ajv to reject with the list of valid values.
+ */
+export function normalizeEnums(value: any, schema: JsonSchema | undefined): any {
+  if (!schema || typeof schema !== "object" || value == null) return value;
+  if (typeof value === "string" && Array.isArray(schema.enum)) {
+    if (schema.enum.includes(value)) return value;
+    const hit = schema.enum.filter((e: unknown) => typeof e === "string" && enumKey(e) === enumKey(value));
+    return hit.length === 1 ? hit[0] : value;
+  }
+  if (Array.isArray(value) && schema.items && typeof schema.items === "object") {
+    for (let i = 0; i < value.length; i++) value[i] = normalizeEnums(value[i], schema.items as JsonSchema);
+    return value;
+  }
+  if (typeof value === "object" && schema.properties && typeof schema.properties === "object") {
+    for (const [k, sub] of Object.entries(schema.properties as Record<string, JsonSchema>)) {
+      if (k in value) value[k] = normalizeEnums(value[k], sub);
+    }
+  }
+  return value;
+}
+
 /** Permissive zod schema so McpServer hands us the raw arguments; real validation is Ajv on the JSON Schema. */
 const PASSTHROUGH_ARGS = z.object({}).passthrough().optional();
 
@@ -206,6 +233,7 @@ function registerFrameworkTool(
     async (rawArgs: unknown) => {
       const args: Record<string, any> =
         rawArgs && typeof rawArgs === "object" ? structuredClone(rawArgs as Record<string, any>) : {};
+      normalizeEnums(args, spec.inputSchema);
       if (!validate(args)) return toToolResult(validationEnvelope(validate), spec.name, guard);
       let envelope: ToolEnvelope;
       try {

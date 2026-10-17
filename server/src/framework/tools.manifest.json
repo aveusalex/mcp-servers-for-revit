@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "131067c129c871091692b7c8ae175f27583b45370f486f0b923e91e927606b0d",
+  "capabilityHash": "3675ff103fb2f5c98be51c92fd1347ccf8344e1b48e2081dca609c1055dc5a6d",
   "tools": [
     {
       "name": "activate_view",
@@ -8467,7 +8467,8 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "dryRunDefault": true
     },
     {
       "name": "rename_elements",

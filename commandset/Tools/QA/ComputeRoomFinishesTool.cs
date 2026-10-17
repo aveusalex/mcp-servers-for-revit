@@ -97,7 +97,7 @@ namespace RevitMCPCommandSet.Tools.QA
             {
                 if (room.Location == null || room.Area <= 0)
                 {
-                    failed.Add(new { id = room.Id.GetValue(), number = room.Number, name = room.Name, reason = room.Location == null ? "not placed" : "not enclosed (area 0)" });
+                    failed.Add(new { id = room.Id.GetValue(), number = room.Number, name = room.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? room.Name, reason = room.Location == null ? "not placed" : "not enclosed (area 0)" });
                     continue;
                 }
                 SpatialElementGeometryResults geo;
@@ -107,7 +107,7 @@ namespace RevitMCPCommandSet.Tools.QA
                 }
                 catch (Exception ex)
                 {
-                    failed.Add(new { id = room.Id.GetValue(), number = room.Number, name = room.Name, reason = ex.Message });
+                    failed.Add(new { id = room.Id.GetValue(), number = room.Number, name = room.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? room.Name, reason = ex.Message });
                     continue;
                 }
 
@@ -170,7 +170,7 @@ namespace RevitMCPCommandSet.Tools.QA
                 {
                     id = room.Id.GetValue(),
                     number = room.Number,
-                    name = room.Name,
+                    name = room.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? room.Name,
                     level = room.Level?.Name,
                     area = M2(room.Area),
                     perimeter = QaSupport.Mm(perimeter),

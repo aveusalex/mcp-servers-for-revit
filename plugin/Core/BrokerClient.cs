@@ -315,8 +315,11 @@ namespace revit_mcp_plugin.Core
                     "Ask the user to bring that project's window to the front, or reorder the work."));
             }
 
-            // Guard-rail: writing to a non-active (background) document is opt-in.
-            if (!isActive && !allowBackgroundWrites && classification.IsWrite)
+            // Guard-rail: writing to a non-active (background) document is opt-in. A framework tool's dryRun
+            // is rolled back, so previewing on a background document is allowed.
+            bool preview = paramsToken?["dryRun"]?.Type == JTokenType.Boolean && (bool)paramsToken["dryRun"] &&
+                           ToolClassification.HonoursDryRun(command);
+            if (!isActive && !allowBackgroundWrites && classification.IsWrite && !preview)
                 return (null, BrokerError("BACKGROUND_WRITE_BLOCKED",
                     $"Write command '{command}' targets a non-active document; background writes are " +
                     "disabled. Activate the document or enable allowBackgroundWrites."));
