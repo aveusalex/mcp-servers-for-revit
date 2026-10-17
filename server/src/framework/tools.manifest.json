@@ -1,5 +1,97 @@
 {
   "version": 1,
-  "capabilityHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-  "tools": []
+  "capabilityHash": "23f33dbe62062186df4ee719861443426222f84b1699fd5694089ff98521ae92",
+  "tools": [
+    {
+      "name": "execute_batch",
+      "description": "Runs several tool calls against one document as a single atomic change: one Ctrl+Z undoes the whole batch. Every step is validated before anything runs; UI steps can't be mixed with model changes and only batchable tools are accepted (max 200 steps). Use \"$steps[i].path\" in args to pass a value from an earlier step (e.g. \"$steps[0].changes.created[0]\"). With dryRun the batch runs and is rolled back, returning what would change. The approval risk of a batch is the highest risk among its steps. Returns per-step results plus the combined change set.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "core",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "description": "Steps to run in order, all against the same document.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tool": {
+                  "description": "Name of a batchable framework tool, e.g. set_elements_pinned.",
+                  "type": "string"
+                },
+                "args": {
+                  "description": "Arguments of that tool (without document/dryRun). A string \"$steps[i].path\" is replaced by a value from the result of an earlier step i, e.g. \"$steps[0].changes.created[0]\" or \"$steps[1].data.viewId\".",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "tool"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "stopOnError": {
+            "description": "When true (default), the first failing step rolls the whole batch back. When false, failing steps are skipped (their own changes rolled back) and the others are kept.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "steps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_session_context",
+      "description": "Call first. Returns this Revit session's state: add-in version and capabilityHash (compare with the server's manifest to detect an outdated add-in), Revit version/build/language, every open document (docId, title, isFamilyDocument, isWorkshared, isActive, isReadOnly, isModified), the active document, the targeted document, the active view and the number of queued tool calls.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "core",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 20,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_elements_pinned",
+      "description": "Pins or unpins elements by id in the target document. Elements already in the requested state are reported as unchanged; ids that don't exist are reported as notFound. Undo with Ctrl+Z or by calling it again with the opposite value. Supports dryRun.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "editing",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "elementIds": {
+            "description": "Ids of the elements to pin or unpin.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "pinned": {
+            "description": "true pins the elements (they can't be moved or deleted by accident); false unpins them.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "elementIds",
+          "pinned"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
 }

@@ -4,16 +4,16 @@ using System.Collections.Generic;
 namespace RevitMCPCommandSet.Framework
 {
     /// <summary>
-    /// Unit of a numeric argument as it travels on the wire. Every <c>double</c>/<c>float</c>/<c>decimal</c>
-    /// argument must declare one (the contract test fails otherwise). Use <c>"none"</c> for dimensionless numbers
-    /// such as ratios or scale factors.
+    /// Unit of a numeric argument as it travels on the wire. A numeric measure (length, area, angle...)
+    /// argument must declare one (the contract test fails otherwise). Dimensionless numbers (ratios,
+    /// scale factors) need none. Matched by name by ManifestGen: keep the class name and ctor.
     /// </summary>
     /// <remarks>No Revit dependency: shared with the manifest generator and the framework tests.</remarks>
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, Inherited = true)]
     public sealed class UnitAttribute : Attribute
     {
-        /// <summary>Units allowed on the wire: millimetres, square metres, cubic metres, degrees, or none.</summary>
-        public static readonly IReadOnlyCollection<string> Allowed = new[] { "mm", "m2", "m3", "deg", "none" };
+        /// <summary>Units allowed on the wire: millimetres, square metres, cubic metres, or degrees.</summary>
+        public static readonly IReadOnlyCollection<string> Allowed = new[] { "mm", "m2", "m3", "deg" };
 
         public UnitAttribute(string unit)
         {

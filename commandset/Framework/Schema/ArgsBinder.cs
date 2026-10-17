@@ -47,11 +47,11 @@ namespace RevitMCPCommandSet.Framework
         private static void Check(JObject json, Type type, string prefix, int depth)
         {
             if (depth > 8) return;
-            var properties = ToolSchemaGenerator.ArgProperties(type);
+            var properties = ArgsContract.ArgProperties(type);
             var byName = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
             foreach (var p in properties)
             {
-                byName[ToolSchemaGenerator.JsonName(p)] = p;
+                byName[ArgsContract.JsonName(p)] = p;
             }
 
             foreach (var entry in json.Properties())
@@ -65,7 +65,7 @@ namespace RevitMCPCommandSet.Framework
 
             foreach (var property in properties)
             {
-                var name = ToolSchemaGenerator.JsonName(property);
+                var name = ArgsContract.JsonName(property);
                 var label = prefix + name;
                 var token = Find(json, name);
                 bool missing = token == null || token.Type == JTokenType.Null ||
@@ -84,8 +84,8 @@ namespace RevitMCPCommandSet.Framework
 
         private static void CheckValue(PropertyInfo property, JToken token, string label, int depth)
         {
-            var type = ToolSchemaGenerator.Unwrap(property.PropertyType);
-            var itemType = ToolSchemaGenerator.ItemType(type);
+            var type = ArgsContract.Unwrap(property.PropertyType);
+            var itemType = ArgsContract.ItemType(type);
 
             var minLength = property.GetCustomAttribute<MinLengthAttribute>();
             var maxLength = property.GetCustomAttribute<MaxLengthAttribute>();
@@ -116,7 +116,7 @@ namespace RevitMCPCommandSet.Framework
 
             var enumValues = property.GetCustomAttribute<EnumValuesAttribute>();
             var range = property.GetCustomAttribute<RangeAttribute>();
-            var scalar = itemType != null ? ToolSchemaGenerator.Unwrap(itemType) : type;
+            var scalar = itemType != null ? ArgsContract.Unwrap(itemType) : type;
 
             foreach (var value in values)
             {
@@ -138,7 +138,7 @@ namespace RevitMCPCommandSet.Framework
                         throw Invalid($"Argument '{label}' must be between {Format(min)} and {Format(max)}; got {Format(number)}.");
                 }
 
-                if (ToolSchemaGenerator.IsNestedObject(scalar))
+                if (ArgsContract.IsNestedObject(scalar))
                 {
                     if (!(value is JObject nested))
                         throw Invalid($"Argument '{label}' must be an object.");
