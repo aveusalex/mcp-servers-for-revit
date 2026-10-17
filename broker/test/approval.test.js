@@ -102,6 +102,60 @@ test("dryRun: trusted for framework tools only; dryRun=false matches a plan step
   await broker.stop();
 });
 
+test("register with tools:null (command set not loaded yet) uses the legacy table until a manifest arrives", async () => {
+  const { broker, port } = await bootBroker();
+  const plugin = await pluginClient(port, { tools: null });
+  const mcp = await mcpClient(port);
+  let r = await mcp.request({ type: "command", correlationId: cid(), docId: "doc-A", command: "find_elements", params: {} });
+  assert.equal(r.error.code, "APPROVAL_REQUIRED"); // unknown -> fail-closed
+  plugin.send$({
+    type: "register",
+    sessionId: "sess-1",
+    documents: [{ docId: "doc-A", title: "Torre A" }],
+    tools: JSON.stringify({ version: 1, tools: [{ name: "find_elements", kind: "read", risk: "none" }] }),
+  });
+  await delay(20);
+  r = await mcp.request({ type: "command", correlationId: cid(), docId: "doc-A", command: "find_elements", params: {} });
+  assert.equal(r.result.ok, true);
+  await broker.stop();
+});
+
+test("execute_batch (statically low) is gated by its riskiest step", async () => {
+  const { broker, port } = await bootBroker();
+  await pluginClient(port, {
+    tools: [
+      { name: "execute_batch", kind: "write", risk: "low", batchable: false },
+      { name: "set_elements_pinned", kind: "write", risk: "low" },
+      { name: "set_parameters", kind: "write", risk: "medium" },
+    ],
+  });
+  const mcp = await mcpClient(port);
+  const send = (steps) =>
+    mcp.request({ type: "command", correlationId: cid(), docId: "doc-A", command: "execute_batch", params: { steps } });
+  let r = await send([{ tool: "set_elements_pinned", args: { elementIds: [1] } }]);
+  assert.equal(r.result.ok, true);
+  r = await send([{ tool: "set_elements_pinned", args: {} }, { tool: "set_parameters", args: {} }]);
+  assert.equal(r.error.code, "APPROVAL_REQUIRED");
+  r = await send([{ tool: "not_in_manifest", args: {} }]);
+  assert.equal(r.error.code, "APPROVAL_REQUIRED");
+  await broker.stop();
+});
+
+test("a tool failure inside result (ok:false) marks the plan failed", async () => {
+  const { broker, port } = await bootBroker();
+  const plugin = await pluginClient(port, {
+    handler: () => ({ result: { ok: false, error: { code: "NOT_FOUND", message: "no element" }, warnings: [] } }),
+  });
+  const mcp = await mcpClient(port);
+  const plan = await createPlan(mcp, "doc-A", [{ tool: "delete_element", args: { elementIds: [1] } }]);
+  await decide(plugin, plan.planId);
+  const r = await mcp.request({ type: "plan_execute", correlationId: cid(), planId: plan.planId });
+  assert.equal(r.result.ok, false);
+  const g = await mcp.request({ type: "plan_get", correlationId: cid(), planId: plan.planId });
+  assert.equal(g.result.status, "failed");
+  await broker.stop();
+});
+
 test("a heartbeat without tools keeps the registered manifest", async () => {
   const { broker, port } = await bootBroker();
   const plugin = await pluginClient(port, { tools: [{ name: "mystery_tool", kind: "read", risk: "none" }] });

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using Newtonsoft.Json.Linq;
 
 namespace revit_mcp_plugin.Core
@@ -10,9 +9,10 @@ namespace revit_mcp_plugin.Core
     /// Replaces the old name-prefix guess (<c>IsLikelyWrite</c>).</para>
     ///
     /// <para>Sources, in order: the <c>kind</c>/<c>risk</c> the broker stamps on every command envelope (the
-    /// broker is the authority: it gates on the same data); the command set's own manifest, read by
-    /// reflection from <c>RevitMCPCommandSet.Framework.ToolRegistry.GetManifestJson()</c> (absent in older
-    /// command sets, so guarded); the static legacy table below, mirroring <c>broker/src/classify.js</c>;
+    /// broker is the authority: it gates on the same data); the command set's own manifest
+    /// (<c>CommandManager.GetToolsManifest</c>, i.e. <c>ToolRegistry.GetManifestJson()</c> by reflection;
+    /// absent in older command sets, so guarded); the static legacy table below, mirroring
+    /// <c>broker/src/classify.js</c>;
     /// and finally fail-closed <c>write/medium</c>.</para>
     /// </summary>
     internal static class ToolClassification
@@ -29,8 +29,6 @@ namespace revit_mcp_plugin.Core
             public string Risk { get; }
             public bool IsWrite => string.Equals(Kind, "write", StringComparison.OrdinalIgnoreCase);
         }
-
-        private const string RegistryTypeName = "RevitMCPCommandSet.Framework.ToolRegistry";
 
         // Keep in sync with LEGACY_TOOLS in broker/src/classify.js.
         private static readonly Dictionary<string, Info> Legacy = new Dictionary<string, Info>(StringComparer.OrdinalIgnoreCase)
@@ -80,52 +78,31 @@ namespace revit_mcp_plugin.Core
         }
 
         /// <summary>
-        /// The command set's manifest JSON, or null when the loaded command set predates the framework
-        /// (no ToolRegistry type) or the call fails.
+        /// Parsed command-set manifest (<see cref="CommandManager.GetToolsManifest"/>, which reads
+        /// ToolRegistry.GetManifestJson() by reflection), cached once found. Null while the command set is not
+        /// loadable or predates the framework; retried on the next call.
         /// </summary>
-        public static string TryGetManifestJson()
-        {
-            try
-            {
-                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-                {
-                    Type type;
-                    try { type = asm.GetType(RegistryTypeName, false); }
-                    catch { continue; }
-                    if (type == null) continue;
-
-                    var method = type.GetMethod("GetManifestJson", BindingFlags.Public | BindingFlags.Static, null, Type.EmptyTypes, null);
-                    if (method == null || method.ReturnType != typeof(string)) return null;
-                    return method.Invoke(null, null) as string;
-                }
-            }
-            catch
-            {
-                // A broken manifest must never stop command dispatch; the legacy table still applies.
-            }
-            return null;
-        }
-
-        /// <summary>Parsed manifest, cached once found. Retried while the command set is not loaded yet.</summary>
         private static Dictionary<string, Info> Manifest()
         {
             lock (Sync)
             {
                 if (_manifest != null) return _manifest;
-                var json = TryGetManifestJson();
-                if (string.IsNullOrEmpty(json)) return null;
-                _manifest = Parse(json);
-                return _manifest;
             }
+            JToken token = null;
+            try { token = CommandManager.GetToolsManifest(DocumentSessionManager.Instance.RevitVersion); }
+            catch { /* a broken manifest must never stop dispatch; the legacy table still applies */ }
+            if (token == null) return null;
+            var parsed = Parse(token);
+            lock (Sync) { _manifest = _manifest ?? parsed; return _manifest; }
         }
 
-        internal static Dictionary<string, Info> Parse(string json)
+        internal static Dictionary<string, Info> Parse(JToken token)
         {
             var map = new Dictionary<string, Info>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                var token = JToken.Parse(json);
-                var tools = token is JArray arr ? arr : token["tools"] as JArray;
+                if (token != null && token.Type == JTokenType.String) token = JToken.Parse((string)token);
+                var tools = token is JArray arr ? arr : token?["tools"] as JArray;
                 if (tools == null) return map;
                 foreach (var t in tools)
                 {

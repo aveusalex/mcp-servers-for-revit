@@ -35,6 +35,21 @@ validation inside Revit.
 - **`commandset/Utils/RevitDocumentContext.cs`** — resolves the target
   `Document` from the AppDomain slot the dispatcher sets.
 
+## Human approval, jobs and limits (Phase 0, Contract E)
+
+- **Classification** (`broker/src/classify.js`): `kind`/`risk` per command from the owning session's
+  `register.tools` manifest, else a static table of legacy commands, else fail-closed `write/medium`.
+  The plugin uses the same data (`plugin/Core/ToolClassification.cs`) instead of the old name-prefix guess.
+- **Gate** (`REVIT_MCP_APPROVAL=ask_first|auto|look_only`, default `ask_first`): `risk >= medium` needs an
+  approved plan (`propose_change_plan` → non-modal window in Revit → `wait_for_plan_decision` →
+  `execute_plan`). Plans live in `%APPDATA%\revit-mcp\plans`, hash includes the `docId`, 30 min TTL, each
+  step runs at most once, a proof file is written. Only the plugin owning the document can decide.
+  Framework `dryRun=true` calls are not gated (they roll back).
+- **Jobs**: past a tool's soft timeout (default 50 s) a command answers `{status:"running", jobId}`;
+  `get_job_result` collects it (hard ceiling 15 min). Identical in-flight commands are not resent.
+- **Limits**: 2 MB per MCP message, 200 steps per batch/plan, 8 commands in flight per MCP client.
+- **Audit** adds `risk`, `planId`, `batchId`, `jobId`; params are hashed unless `REVIT_MCP_AUDIT_PARAMS=full`.
+
 ## Backward compatibility
 
 With exactly one project open, `resolveTargetDocId()` returns that document with
