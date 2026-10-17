@@ -20,7 +20,74 @@ export interface DocumentMeta {
   sessionId?: string;
 }
 
-const COMMAND_TIMEOUT_MS = 120000;
+/**
+ * Client-side safety net only. The broker answers a slow command with
+ * {status:"running", jobId} after the tool's soft timeout (default 50 s) and
+ * gives up on its own after 15 min, so this just has to be longer than that.
+ */
+const COMMAND_TIMEOUT_MS = 16 * 60 * 1000;
+
+/** Error raised for a broker/plugin error reply; keeps the structured fields. */
+export interface BrokerError extends Error {
+  code?: string;
+  hint?: string;
+  recommendedTool?: string;
+  details?: unknown;
+}
+
+/** What the broker answers when a command outlives its soft timeout. */
+export interface RunningResult {
+  status: "running";
+  jobId: string;
+  command?: string;
+  duplicate?: boolean;
+  message?: string;
+}
+
+export function isRunningResult(value: unknown): value is RunningResult {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    (value as any).status === "running" &&
+    typeof (value as any).jobId === "string"
+  );
+}
+
+export interface PlanStep {
+  tool: string;
+  args?: Record<string, unknown>;
+}
+
+export interface JobView {
+  jobId: string;
+  status: "running" | "succeeded" | "failed";
+  command: string;
+  docId: string;
+  risk?: string;
+  planId?: string | null;
+  batchId?: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  elapsedMs: number;
+  result?: unknown;
+  error?: { code: string; message: string; hint?: string; recommendedTool?: string } | null;
+}
+
+export interface PlanView {
+  planId: string;
+  planHash: string;
+  docId: string;
+  docTitle?: string | null;
+  summary: string;
+  reasoning?: string | null;
+  risk: string;
+  status: "pending" | "approved" | "rejected" | "expired" | "executing" | "executed" | "failed";
+  createdAt: string;
+  expiresAt: string;
+  steps: Array<{ index: number; tool: string; args: unknown; kind: string; risk: string; status: string }>;
+  decision: { decision: string; approver: string; note?: string | null; decidedAt: string } | null;
+  proofPath?: string | null;
+}
 
 /**
  * The MCP server's single, persistent link to the broker daemon. One of these
@@ -149,10 +216,12 @@ class BrokerConnection {
     clearTimeout(p.timer);
     this.pending.delete(cid);
     if (msg.error) {
-      const err = new Error(msg.error.message || "Broker error") as Error & {
-        code?: string;
-      };
+      const err = new Error(msg.error.message || "Broker error") as BrokerError;
       err.code = msg.error.code;
+      // Keep the guidance for the AI (F3's envelope renders hint/recommendedTool).
+      if (msg.error.hint) err.hint = msg.error.hint;
+      if (msg.error.recommendedTool) err.recommendedTool = msg.error.recommendedTool;
+      if (msg.error.details !== undefined) err.details = msg.error.details;
       p.reject(err);
     } else if (msg.type === "documents") {
       p.resolve(msg.documents ?? []);
@@ -179,10 +248,48 @@ class BrokerConnection {
     return this._request<DocumentMeta[]>({ type: "list_documents" });
   }
 
-  /** Route a command to the plugin session that owns `docId`. */
-  async sendCommand(docId: string, command: string, params: any): Promise<any> {
+  /**
+   * Route a command to the plugin session that owns `docId`. Resolves with the
+   * plugin's result, or with a {@link RunningResult} when the command is still
+   * running past its soft timeout (collect it with getJob).
+   */
+  async sendCommand(docId: string, command: string, params: any, planId?: string): Promise<any> {
     await this.ensureConnected();
-    return this._request({ type: "command", docId, command, params });
+    return this._request({ type: "command", docId, command, params, ...(planId ? { planId } : {}) });
+  }
+
+  /** Status/result of a job; long-polls up to `waitSeconds` (broker caps it at 50). */
+  async getJob(jobId: string, waitSeconds = 0): Promise<JobView> {
+    await this.ensureConnected();
+    return this._request<JobView>({ type: "get_job", jobId, waitSeconds });
+  }
+
+  /** Propose a change plan; the owning Revit shows it to the user for approval. */
+  async planCreate(
+    docId: string,
+    steps: PlanStep[],
+    summary: string,
+    reasoning?: string
+  ): Promise<{ planId: string; planHash: string; status: string; expiresAt: string; risk: string; docId: string; steps: unknown[] }> {
+    await this.ensureConnected();
+    return this._request({ type: "plan_create", docId, steps, summary, reasoning });
+  }
+
+  async planGet(planId: string): Promise<PlanView> {
+    await this.ensureConnected();
+    return this._request<PlanView>({ type: "plan_get", planId });
+  }
+
+  /** Resolves when the plan leaves `pending` or after `waitSeconds` (≤ 50). */
+  async planWait(planId: string, waitSeconds = 50): Promise<PlanView> {
+    await this.ensureConnected();
+    return this._request<PlanView>({ type: "plan_wait", planId, waitSeconds });
+  }
+
+  /** Run the remaining steps of an approved plan (one execute_batch when possible). */
+  async planExecute(planId: string): Promise<any> {
+    await this.ensureConnected();
+    return this._request({ type: "plan_execute", planId });
   }
 
   private _spawnBroker(): void {

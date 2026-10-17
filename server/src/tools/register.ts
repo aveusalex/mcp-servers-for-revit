@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { runWithExplicitDocument } from "../utils/targeting.js";
+import { legacyCallScope } from "../utils/ConnectionManager.js";
 import {
   installFaithfulToolListing,
   isExposed,
@@ -85,7 +86,11 @@ function installDocumentParam(
         forwarded = { ...toolArgs };
         delete forwarded.document;
       }
-      return runWithExplicitDocument(document, () => cb(forwarded, extra));
+      // legacyCallScope: broker guidance (approval hint, job polling) is folded
+      // into what these tools print — see ConnectionManager.
+      return legacyCallScope.run(true, () =>
+        runWithExplicitDocument(document, () => cb(forwarded, extra))
+      );
     };
 
     const rebuilt = hasShape
