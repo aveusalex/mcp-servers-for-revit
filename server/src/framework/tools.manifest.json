@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "4543b52b3570de9d9e74d4d183a14531450532a0bb52fe735aaf6b2026e743ad",
+  "capabilityHash": "8db75ff9ce471dffe0451b454ceca381a398c7a03a1b5d18157a1e2f1fba1bcd",
   "tools": [
     {
       "name": "create_sheets",
@@ -133,6 +133,417 @@
         "required": [
           "steps"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "export_cad",
+      "description": "Export views or sheets to DWG or DXF (one file per view/sheet, named by fileNamePattern), optionally with a saved export setup (setupName). Writes only inside the allowed folders (default Documents\\RevitMCP\\exports\\<document>\\<timestamp>) and returns every file really written (including xref and .pcp files). The model is not changed. Long exports answer 'running' with a jobId.",
+      "kind": "read",
+      "risk": "low",
+      "toolset": "export",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 900,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "description": "dwg (default) or dxf.",
+            "type": "string",
+            "enum": [
+              "dwg",
+              "dxf"
+            ],
+            "default": "dwg"
+          },
+          "viewIds": {
+            "description": "Views or sheets to export, by id.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "sheetNumberFilter": {
+            "description": "Also export sheets whose number matches this pattern (* and ? wildcards, e.g. \"ARQ-*\").",
+            "type": "string"
+          },
+          "setupName": {
+            "description": "Saved DWG/DXF export setup to use (Export > Options > Export Setups). Default: Revit's default options.",
+            "type": "string"
+          },
+          "fileNamePattern": {
+            "description": "File name per view (default \"{SheetNumber} - {SheetName}\" for sheets, \"{ViewName}\" for views). Placeholders: {SheetNumber} {SheetName} {ViewName} {ViewType} {Id} {Project} {Date}.",
+            "type": "string"
+          },
+          "mergedViews": {
+            "description": "DWG sheets: true (default) puts the views in the sheet file; false writes each view as an external reference file. Ignored for DXF.",
+            "type": "boolean",
+            "default": true
+          },
+          "folder": {
+            "description": "Output folder: absolute inside an allowed root, or relative to Documents\\RevitMCP\\exports. Default: exports\\<document>\\<timestamp>.",
+            "type": "string"
+          },
+          "listOnly": {
+            "description": "Only list the views and file names that would be exported. Default false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "export_elements_data",
+      "description": "Export the elements of some categories with chosen parameters (or all instance parameters with a value) to CSV (UTF-8 BOM, ';' and decimal comma by default) or JSON. Each row has id and uniqueId (keys for re-import with set_parameters), category, family, type and level; values are in wire units (mm, m2, m3, deg) and headers carry the unit. Optional where[] and view filters. Writes only inside the allowed folders; returns the path, row/column counts and a preview.",
+      "kind": "read",
+      "risk": "low",
+      "toolset": "export",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 300,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "description": "Categories to export, in any language: OST_Doors, Doors or Portas.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parameters": {
+            "description": "Parameters to export, each {guid} | {builtIn} | {name} (or a plain name). Omit to export every instance parameter that has a value (max 200 columns).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "guid": {
+                  "description": "Shared parameter GUID. Wins over builtIn and name.",
+                  "type": "string"
+                },
+                "builtIn": {
+                  "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "includeTypeParameters": {
+            "description": "Also look the requested parameters up on the element's type when the instance doesn't have them (default true). With no parameters list, adds the type's parameters as 'type:<name>' columns.",
+            "type": "boolean",
+            "default": true
+          },
+          "where": {
+            "description": "Optional parameter conditions (same as find_elements.where), all must match.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "parameter": {
+                  "description": "Parameter reference: {guid} | {builtIn} | {name}.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "op": {
+                  "description": "Operator (default eq). Text compares ignore case and accents; numbers compare in wire units (mm, m2, m3, deg, %).",
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "neq",
+                    "contains",
+                    "not_contains",
+                    "starts_with",
+                    "ends_with",
+                    "regex",
+                    "gt",
+                    "gte",
+                    "lt",
+                    "lte",
+                    "is_empty",
+                    "not_empty"
+                  ],
+                  "default": "eq"
+                },
+                "value": {
+                  "description": "Value to compare with (not needed for is_empty / not_empty)."
+                },
+                "scope": {
+                  "description": "Where to read the parameter: auto (instance, then type; default), instance or type.",
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "instance",
+                    "type"
+                  ],
+                  "default": "auto"
+                }
+              },
+              "required": [
+                "parameter"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "view": {
+            "description": "Only elements visible in this view (name or id).",
+            "type": "string"
+          },
+          "format": {
+            "description": "csv (default; UTF-8 with BOM, opens in Excel) or json. Use the server's xlsx conversion for Excel files.",
+            "type": "string",
+            "enum": [
+              "csv",
+              "json"
+            ],
+            "default": "csv"
+          },
+          "delimiter": {
+            "description": "CSV delimiter: ';' (default, Excel pt-BR), ',' or 'tab'.",
+            "type": "string",
+            "enum": [
+              ";",
+              ",",
+              "tab"
+            ],
+            "default": ";"
+          },
+          "decimalSeparator": {
+            "description": "Decimal separator for numbers in CSV: ',' (default, pt-BR) or '.'.",
+            "type": "string",
+            "enum": [
+              ",",
+              "."
+            ],
+            "default": ","
+          },
+          "output": {
+            "description": "file (default): write the file and return its path plus the first rows; inline: return all rows (max 500).",
+            "type": "string",
+            "enum": [
+              "file",
+              "inline"
+            ],
+            "default": "file"
+          },
+          "fileName": {
+            "description": "File name without extension (default \"<categories> - <date>\").",
+            "type": "string"
+          },
+          "folder": {
+            "description": "Output folder: absolute inside an allowed root, or relative to Documents\\RevitMCP\\exports. Default: exports\\<document>\\<timestamp>.",
+            "type": "string"
+          },
+          "maxElements": {
+            "description": "Stop after this many elements, 1-100000 (default 20000); the result says truncated.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000,
+            "default": 20000
+          }
+        },
+        "required": [
+          "categories"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "export_ifc",
+      "description": "Export the model (or only what a view shows, via viewId) to IFC 2x3 CV2, IFC4 RV or IFC4 DTV, with optional base quantities and space boundaries. Writes only inside the allowed folders (default Documents\\RevitMCP\\exports\\<document>\\<timestamp>) and returns the file really written. The exporter runs in a transaction that is always rolled back, so the model is not changed. Large models take minutes: the call answers 'running' with a jobId (poll get_job_result).",
+      "kind": "read",
+      "risk": "low",
+      "toolset": "export",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 1800,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ifcVersion": {
+            "description": "IFC2x3CV2 (default, Coordination View 2.0), IFC4RV (Reference View) or IFC4DTV (Design Transfer View).",
+            "type": "string",
+            "enum": [
+              "IFC2x3CV2",
+              "IFC4RV",
+              "IFC4DTV"
+            ],
+            "default": "IFC2x3CV2"
+          },
+          "viewId": {
+            "description": "Export only what is visible in this view (usually a 3D view). Omit to export the whole model.",
+            "type": "integer"
+          },
+          "exportBaseQuantities": {
+            "description": "Include IFC base quantities (areas, volumes). Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "spaceBoundaries": {
+            "description": "Room/space boundaries: 0 none (default), 1 first level, 2 second level.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2,
+            "default": 0
+          },
+          "splitWallsAndColumnsByLevel": {
+            "description": "Split walls and columns by building storey. Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "fileName": {
+            "description": "File name without extension (default \"{Project}\"). Placeholders {Project} {Date}.",
+            "type": "string"
+          },
+          "folder": {
+            "description": "Output folder: absolute inside an allowed root, or relative to Documents\\RevitMCP\\exports. Default: exports\\<document>\\<timestamp>.",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Replace an existing file with the same name (default false: fail with FILE_EXISTS).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "export_pdf",
+      "description": "Export sheets (by ids, sheet number wildcard or a saved view/sheet set) and/or views to PDF with Revit's PDF exporter, one file per sheet (fileNamePattern) or one combined file. Writes only inside the allowed folders (default Documents\\RevitMCP\\exports\\<document>\\<timestamp>) and returns the files really written (path, bytes) plus skipped sheets with the reason. The model is not changed. Use listOnly to preview. Long exports answer 'running' with a jobId (poll get_job_result).",
+      "kind": "read",
+      "risk": "low",
+      "toolset": "export",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 900,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sheetIds": {
+            "description": "Sheet ids to export.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "viewIds": {
+            "description": "Other views (not sheets) to export, by id.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "sheetNumberFilter": {
+            "description": "Sheets whose number matches this pattern: * and ? wildcards (e.g. \"ARQ-1*\"), case-insensitive.",
+            "type": "string"
+          },
+          "viewSheetSetName": {
+            "description": "Name of a saved view/sheet set (Print Setup > View/Sheet Set) to export.",
+            "type": "string"
+          },
+          "combine": {
+            "description": "true: one combined PDF; false (default): one PDF per sheet/view.",
+            "type": "boolean",
+            "default": false
+          },
+          "fileNamePattern": {
+            "description": "Per-sheet file name pattern (default \"{SheetNumber} - {SheetName}\"; for views \"{ViewName}\"). Placeholders: {SheetNumber} {SheetName} {ViewName} {ViewType} {Id} {Project} {Date}.",
+            "type": "string"
+          },
+          "fileName": {
+            "description": "Name of the combined PDF (without extension; default \"{Project} - {Date}\"). Same placeholders as fileNamePattern.",
+            "type": "string"
+          },
+          "folder": {
+            "description": "Output folder: absolute inside an allowed root, or relative to Documents\\RevitMCP\\exports. Default: exports\\<document>\\<timestamp>.",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Replace PDFs that already exist (default false: those sheets are skipped).",
+            "type": "boolean",
+            "default": false
+          },
+          "paperFormat": {
+            "description": "Paper: \"default\" (use each sheet's size, default) or A0, A1, A2, A3, A4.",
+            "type": "string",
+            "enum": [
+              "default",
+              "A0",
+              "A1",
+              "A2",
+              "A3",
+              "A4"
+            ],
+            "default": "default"
+          },
+          "colorMode": {
+            "description": "color (default), grayscale or blackLine.",
+            "type": "string",
+            "enum": [
+              "color",
+              "grayscale",
+              "blackLine"
+            ],
+            "default": "color"
+          },
+          "rasterQuality": {
+            "description": "Raster quality: low, medium, high (default) or presentation.",
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "presentation"
+            ],
+            "default": "high"
+          },
+          "hideCropBoundaries": {
+            "description": "Hide crop boundaries (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "hideScopeBoxes": {
+            "description": "Hide scope boxes (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "hideReferencePlanes": {
+            "description": "Hide reference planes (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "hideUnreferencedViewTags": {
+            "description": "Hide unreferenced view tags (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "listOnly": {
+            "description": "Only list what would be exported (sheets, file names, skips) without writing anything. Default false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
         "additionalProperties": false
       }
     },
@@ -450,6 +861,219 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_view_image",
+      "description": "Render one view or sheet, by id, to a PNG (or JPG) and return it as an image the assistant can look at (data.image), sized by pixels/fitDirection. Optionally keep the file in an allowed folder (saveTo). Schedules can't be rendered. Read-only: the model is not changed.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "export",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "viewId": {
+            "description": "Id of the view or sheet to render (any document view; it does not need to be open).",
+            "type": "integer"
+          },
+          "pixels": {
+            "description": "Image size in pixels along fitDirection, 64-4096 (default 1600). Big images cost many tokens.",
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 4096,
+            "default": 1600
+          },
+          "fitDirection": {
+            "description": "Which side 'pixels' applies to: horizontal (default) or vertical.",
+            "type": "string",
+            "enum": [
+              "horizontal",
+              "vertical"
+            ],
+            "default": "horizontal"
+          },
+          "format": {
+            "description": "png (default) or jpg.",
+            "type": "string",
+            "enum": [
+              "png",
+              "jpg"
+            ],
+            "default": "png"
+          },
+          "returnImage": {
+            "description": "Return the image so the assistant can see it (default true). false only saves the file (needs saveTo).",
+            "type": "boolean",
+            "default": true
+          },
+          "saveTo": {
+            "description": "Optional folder to keep the image in (absolute inside an allowed root, or relative to Documents\\RevitMCP\\exports).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "viewId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_commands",
+      "description": "List the tools the installed Revit add-in provides, with kind (read/write/ui), risk, toolset, whether it changes the model, whether it needs the user's approval (risk medium or high), batchable, idempotent and timeout. Filter by text, kind or toolset. Works with no document open.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "core",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 20,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "contains": {
+            "description": "Only tools whose name or description contains this text (case and accents ignored).",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Only tools of this kind: read, write or ui.",
+            "type": "string",
+            "enum": [
+              "read",
+              "write",
+              "ui"
+            ]
+          },
+          "toolset": {
+            "description": "Only tools of this toolset (core, query, parameters, sheets, export, qa, documents, ...).",
+            "type": "string"
+          },
+          "includeDescriptions": {
+            "description": "Include each tool's full description (default false: first sentence only).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_links",
+      "description": "List the Revit links (type id, name, path, loaded/unloaded/not found, attachment or overlay, nested, instance count) and the CAD files (linked vs imported, path, status, instances and the view owning view-specific ones). Use the linkTypeId with manage_links to reload or unload. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "export",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "rvt (Revit links), cad (linked and imported DWG/DXF/DGN/SKP...) or all (default).",
+            "type": "string",
+            "enum": [
+              "rvt",
+              "cad",
+              "all"
+            ],
+            "default": "all"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_recent_models",
+      "description": "List the models Revit opened recently (its MRU list in Revit.ini), most recent first, with path, whether the file still exists, last modified time and size. Works with no document open. Use it to find a model to open. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "documents",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 20,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "revitVersion": {
+            "description": "Revit version whose recent list to read, e.g. \"2025\". Default: the running Revit.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Maximum entries, 1-100 (default 20).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "manage_links",
+      "description": "Reload or unload Revit links by link type id (from list_links). Reload re-reads the file from its saved path (fails with the reason if the file is missing); unload removes the link's geometry from the session until reloaded. Neither can be undone with Ctrl+Z: undo an unload with reload. dryRun lists what would happen. CAD links are listed by list_links but not managed here.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "export",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 600,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "reload (reload from the saved path) or unload.",
+            "type": "string",
+            "enum": [
+              "reload",
+              "unload"
+            ]
+          },
+          "linkTypeIds": {
+            "description": "Revit link type ids (linkTypeId from list_links).",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "operation",
+          "linkTypeIds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "save_document",
+      "description": "Save the target document to its own file, or Save As a new file inside the allowed folders (saveAsPath). Workshared models are saved locally only: it never synchronizes with central (ask the user to sync in Revit), and Save As is refused for them. A never-saved document needs saveAsPath. Saving can't be undone; dryRun reports what would be saved.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "documents",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 600,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "saveAsPath": {
+            "description": "Save a copy under a new name (Save As): absolute inside an allowed root, or relative to Documents\\RevitMCP\\models. The document then points to the new file. Not allowed for workshared models.",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Save As only: replace an existing file (default false: fail with FILE_EXISTS).",
+            "type": "boolean",
+            "default": false
+          },
+          "compact": {
+            "description": "Compact the file while saving (slower, smaller). Default false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
         "additionalProperties": false
       }
     },
