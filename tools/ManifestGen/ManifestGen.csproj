@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+      Generates server/src/framework/tools.manifest.json (FASE0_SPEC, Contract D) from RevitMCPCommandSet.dll.
+      Reads metadata only (System.Reflection.MetadataLoadContext): Revit is never loaded or executed.
+    -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>disable</Nullable>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <RollForward>Major</RollForward>
+        <AssemblyName>ManifestGen</AssemblyName>
+        <RootNamespace>RevitMCP.Manifest</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="System.Reflection.MetadataLoadContext" Version="8.0.1" />
+    </ItemGroup>
+
+</Project>
