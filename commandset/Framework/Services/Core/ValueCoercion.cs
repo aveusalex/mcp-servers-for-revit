@@ -49,6 +49,10 @@ namespace RevitMCPCommandSet.Framework.Services
         private static readonly Regex NumberWithUnit =
             new Regex(@"^\s*([-+]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:[eE][-+]?\d+)?)\s*([A-Za-z%°²³\u00C0-\u024F][^\s]*)?\s*$", RegexOptions.CultureInvariant);
 
+        // A dot followed by exactly three digits ("3.000", "-1.250"): a pt-BR thousands group or a decimal.
+        private static readonly Regex PtBrThousands =
+            new Regex(@"^[-+]?\d{1,3}\.\d{3}$", RegexOptions.CultureInvariant);
+
         private static readonly HashSet<string> TrueWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             { "true", "yes", "y", "sim", "s", "on", "verdadeiro" };
 
@@ -190,6 +194,12 @@ namespace RevitMCPCommandSet.Framework.Services
                     if (m.Success)
                     {
                         var num = m.Groups[1].Value;
+                        // "3.000" or "1.250.000" read as thousands in pt-BR but as decimals in invariant culture:
+                        // refuse rather than guess.
+                        if (PtBrThousands.IsMatch(num))
+                            throw new ToolException("AMBIGUOUS_NUMBER",
+                                $"{Cap(label)}: '{s}' is ambiguous (thousands separator or decimal point?).",
+                                "Send a JSON number, e.g. 3000 or 3.0, instead of text.");
                         // Decimal comma is accepted only when there is no dot ("2,5" → 2.5; "1,000.5" is refused).
                         if (num.IndexOf(',') >= 0 && num.IndexOf('.') < 0 && num.Count(c => c == ',') == 1)
                             num = num.Replace(',', '.');

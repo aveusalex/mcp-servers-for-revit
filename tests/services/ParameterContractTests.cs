@@ -62,6 +62,25 @@ public class ValueCoercionTests
         Assert.Equal(7, ValueCoercion.Coerce(StorageKind.Double, 7L, UnitSpec.Dimensionless).Double);
     }
 
+    [Theory]
+    [InlineData("3.000")]
+    [InlineData("-1.250")]
+    [InlineData("3.000 mm")]
+    public void Double_refuses_text_that_reads_as_ptBR_thousands(string value)
+    {
+        Assert.Equal("AMBIGUOUS_NUMBER",
+            Assert.Throws<ToolException>(() => ValueCoercion.Coerce(StorageKind.Double, value, UnitSpec.Length)).Code);
+    }
+
+    [Theory]
+    [InlineData("3.5", 3.5)]
+    [InlineData("3.0", 3.0)]
+    [InlineData("12.3456", 12.3456)]
+    public void Double_keeps_unambiguous_decimal_text(string value, double expected)
+    {
+        Assert.Equal(expected, ValueCoercion.Coerce(StorageKind.Double, value, UnitSpec.Dimensionless).Double, 12);
+    }
+
     [Fact]
     public void Double_inline_unit_and_explicit_override()
     {
