@@ -87,6 +87,15 @@ namespace revit_mcp_plugin.Core
             }
 
             DocumentSessionManager.Instance.Initialize(uiCtrlApp, _logger);
+
+            // OnStartup runs on Revit's UI thread: remember its dispatcher so plan
+            // approval windows (pushed by the broker on the socket thread) open there.
+            PlanApprovalCoordinator.Instance.Initialize(
+                System.Windows.Threading.Dispatcher.CurrentDispatcher,
+                SafeMainWindowHandle(uiCtrlApp),
+                SendPlanDecisionAsync,
+                _logger);
+
             // Push a fresh registration whenever the document set/active doc changes.
             DocumentSessionManager.Instance.StateChanged += OnDocumentStateChanged;
 
@@ -229,16 +238,30 @@ namespace revit_mcp_plugin.Core
             try { env = JObject.Parse(json); }
             catch { return; }
 
-            if ((string)env["type"] != "command") return; // only commands are actionable here
+            switch ((string)env["type"])
+            {
+                case "command":
+                    break;
+                case "plan_pending":
+                    PlanApprovalCoordinator.Instance.ShowPlan(env["plan"] as JObject, (string)env["planHash"]);
+                    return;
+                case "plan_decision_ack":
+                    PlanApprovalCoordinator.Instance.OnDecisionAck(env);
+                    return;
+                default:
+                    return;
+            }
 
             string correlationId = (string)env["correlationId"];
             string docId = (string)env["docId"];
             string command = (string)env["command"];
             JToken paramsToken = env["params"] ?? new JObject();
+            // kind/risk as classified by the broker (the gate's own data); absent from older brokers.
+            var classification = ToolClassification.Classify(command, (string)env["kind"], (string)env["risk"]);
 
             try
             {
-                var (result, error) = Dispatch(docId, command, paramsToken);
+                var (result, error) = Dispatch(docId, command, paramsToken, classification);
                 SafeFireAndForget(() => SendResponseAsync(correlationId, result, error));
             }
             catch (Exception ex)
@@ -250,7 +273,8 @@ namespace revit_mcp_plugin.Core
 
         // --- dispatch (Fase 3 targeting + Fase 4 scope policy) --------------------
 
-        private (JToken result, JObject error) Dispatch(string docId, string command, JToken paramsToken)
+        private (JToken result, JObject error) Dispatch(string docId, string command, JToken paramsToken,
+            ToolClassification.Info classification)
         {
             // Never let AI push a central-model synchronization. Workshared models
             // must only ever sync under a human's hand.
@@ -292,7 +316,7 @@ namespace revit_mcp_plugin.Core
             }
 
             // Guard-rail: writing to a non-active (background) document is opt-in.
-            if (!isActive && !allowBackgroundWrites && IsLikelyWrite(command))
+            if (!isActive && !allowBackgroundWrites && classification.IsWrite)
                 return (null, BrokerError("BACKGROUND_WRITE_BLOCKED",
                     $"Write command '{command}' targets a non-active document; background writes are " +
                     "disabled. Activate the document or enable allowBackgroundWrites."));
@@ -388,18 +412,6 @@ namespace revit_mcp_plugin.Core
                 || c.Contains("synctocentral");
         }
 
-        private static bool IsLikelyWrite(string command)
-        {
-            if (string.IsNullOrEmpty(command)) return false;
-            return command.StartsWith("create_", StringComparison.OrdinalIgnoreCase)
-                || command.StartsWith("delete_", StringComparison.OrdinalIgnoreCase)
-                || command.StartsWith("modify_", StringComparison.OrdinalIgnoreCase)
-                || command.StartsWith("tag_", StringComparison.OrdinalIgnoreCase)
-                || command.StartsWith("operate_", StringComparison.OrdinalIgnoreCase)
-                || command.Equals("color_splash", StringComparison.OrdinalIgnoreCase)
-                || command.Equals("send_code_to_revit", StringComparison.OrdinalIgnoreCase);
-        }
-
         // --- lazy command registry load -------------------------------------------
 
         private bool EnsureCommandsLoaded()
@@ -412,6 +424,9 @@ namespace revit_mcp_plugin.Core
             try
             {
                 ExternalEventManager.Instance.Initialize(uiApp, _logger);
+                // We are on the UI thread in a valid API context (Idling): create the
+                // event the approval window uses to select/zoom affected elements.
+                UiActionQueue.Instance.Initialize();
                 _commandExecutor = new CommandExecutor(_commandRegistry, _logger);
 
                 var commandManager = new CommandManager(_commandRegistry, _logger, _configManager, uiApp);
@@ -482,6 +497,33 @@ namespace revit_mcp_plugin.Core
             {
                 _sendLock.Release();
             }
+        }
+
+        /// <summary>
+        /// Relay the human's verdict on a plan. The broker accepts it only from the
+        /// session that owns the plan's document and only for the shown plan hash.
+        /// </summary>
+        private async Task SendPlanDecisionAsync(string planId, string planHash, string decision, string note)
+        {
+            var payload = new JObject
+            {
+                ["type"] = "plan_decision",
+                ["correlationId"] = Guid.NewGuid().ToString(),
+                ["planId"] = planId,
+                ["planHash"] = planHash,
+                ["decision"] = decision,
+                ["approver"] = Environment.UserName,
+            };
+            if (!string.IsNullOrWhiteSpace(note)) payload["note"] = note;
+            if (_ws == null || _ws.State != WebSocketState.Open)
+                throw new InvalidOperationException("Not connected to the MCP broker; the decision was not sent.");
+            await SendRawAsync(payload.ToString(Formatting.None));
+        }
+
+        private static IntPtr SafeMainWindowHandle(UIControlledApplication app)
+        {
+            try { return app.MainWindowHandle; }
+            catch { return IntPtr.Zero; }
         }
 
         private static JObject BrokerError(string code, string message)

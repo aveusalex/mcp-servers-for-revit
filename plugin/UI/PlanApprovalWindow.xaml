@@ -1,0 +1,66 @@
+<Window x:Class="revit_mcp_plugin.UI.PlanApprovalWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MCP - change plan waiting for approval"
+        Width="820" Height="560" MinWidth="560" MinHeight="380"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="True" Topmost="False">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="An AI assistant asks to change this model." FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock x:Name="HeaderText" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="#444"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Margin="0,10,0,0" Padding="8" Background="#f5f5f5" BorderBrush="#ddd" BorderThickness="1">
+            <TextBlock x:Name="SummaryText" TextWrapping="Wrap" FontSize="13"/>
+        </Border>
+
+        <Expander Grid.Row="2" x:Name="ReasoningExpander" Header="Reasoning given by the assistant" Margin="0,6,0,0">
+            <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                <TextBlock x:Name="ReasoningText" TextWrapping="Wrap" Margin="4"/>
+            </ScrollViewer>
+        </Expander>
+
+        <DataGrid Grid.Row="3" x:Name="StepsGrid" Margin="0,8,0,0" AutoGenerateColumns="False" IsReadOnly="True"
+                  HeadersVisibility="Column" CanUserAddRows="False" SelectionMode="Extended">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="35"/>
+                <DataGridTextColumn Header="Command" Binding="{Binding Tool}" Width="170"/>
+                <DataGridTextColumn Header="Risk" Binding="{Binding Risk}" Width="65"/>
+                <DataGridTextColumn Header="Elements" Binding="{Binding ElementCount}" Width="70"/>
+                <DataGridTextColumn Header="Arguments" Binding="{Binding Args}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextWrapping" Value="Wrap"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <DockPanel Grid.Row="4" Margin="0,8,0,0">
+            <TextBlock Text="Note (optional): " VerticalAlignment="Center" DockPanel.Dock="Left"/>
+            <TextBox x:Name="NoteBox" MaxLength="2000"/>
+        </DockPanel>
+
+        <TextBlock Grid.Row="5" x:Name="StatusText" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#a33"/>
+
+        <DockPanel Grid.Row="6" Margin="0,8,0,0" LastChildFill="False">
+            <Button x:Name="HighlightButton" Content="Highlight in model" Padding="12,4" DockPanel.Dock="Left"
+                    Click="Highlight_Click" ToolTip="Select and zoom to the affected elements (the document must be the active one)"/>
+            <Button x:Name="ApproveButton" Content="Approve" Padding="18,4" Margin="8,0,0,0" DockPanel.Dock="Right"
+                    Click="Approve_Click" FontWeight="SemiBold"/>
+            <Button x:Name="RejectButton" Content="Reject" Padding="18,4" DockPanel.Dock="Right"
+                    Click="Reject_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

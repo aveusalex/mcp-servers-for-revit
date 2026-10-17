@@ -24,8 +24,47 @@ export const HEARTBEAT_INTERVAL_MS = 5000;
  */
 export const SESSION_TTL_MS = 15000;
 
-/** Default per-command timeout. Revit operations can be slow. */
-export const COMMAND_TIMEOUT_MS = 120000;
+/**
+ * Hard ceiling for one command. Past the per-tool soft timeout the MCP client
+ * is told the command is still running (a job), and the broker keeps waiting
+ * for the plugin up to this limit. Revit operations can be very slow.
+ */
+export const COMMAND_TIMEOUT_MS = 15 * 60 * 1000;
+
+/** Default soft timeout (seconds) after which a command becomes a job. */
+export const DEFAULT_TOOL_TIMEOUT_S = 50;
+
+/** Longest a get_job / plan_wait long-poll may block, in seconds. */
+export const MAX_WAIT_S = 50;
+
+/** Finished jobs are kept this long so get_job can still return them. */
+export const JOB_RETENTION_MS = 30 * 60 * 1000;
+
+/** Time a plan stays valid (pending, or approved but not executed). */
+export const PLAN_TTL_MS = 30 * 60 * 1000;
+
+/** Limits (Contract E). */
+export const MAX_MESSAGE_BYTES = 2 * 1024 * 1024;
+export const MAX_BATCH_STEPS = 200;
+export const MAX_INFLIGHT_PER_MCP = 8;
+
+/**
+ * Human-approval mode, from REVIT_MCP_APPROVAL:
+ *   ask_first (default) - risk >= medium needs an approved plan
+ *   auto                - no gate (CI / headless); plans are auto-approved
+ *   look_only           - every write is refused
+ * Anything unrecognised falls back to ask_first (fail-closed).
+ */
+export function approvalMode(value = process.env.REVIT_MCP_APPROVAL) {
+  const v = String(value ?? "").trim().toLowerCase();
+  if (v === "auto" || v === "look_only") return v;
+  return "ask_first";
+}
+
+/** How command params are written to the audit log: hash (default) | full. */
+export function auditParamsMode(value = process.env.REVIT_MCP_AUDIT_PARAMS) {
+  return String(value ?? "").trim().toLowerCase() === "full" ? "full" : "hash";
+}
 
 /**
  * Root of all broker state on disk. Windows: %APPDATA%\revit-mcp.
@@ -43,6 +82,10 @@ export function stateDir() {
 
 export function auditDir() {
   return path.join(stateDir(), "audit");
+}
+
+export function plansDir() {
+  return path.join(stateDir(), "plans");
 }
 
 const TOKEN_FILE = () => path.join(stateDir(), "broker-token");
