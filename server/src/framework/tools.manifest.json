@@ -1,7 +1,43 @@
 {
   "version": 1,
-  "capabilityHash": "4543b52b3570de9d9e74d4d183a14531450532a0bb52fe735aaf6b2026e743ad",
+  "capabilityHash": "a446de19150c45cd84d3ef23f512b070ba9d440f2d0096dbb9d9dd21cb6001a2",
   "tools": [
+    {
+      "name": "activate_view",
+      "description": "Open a view, sheet or schedule and make it the active view (by name or id; viewType disambiguates names shared by a plan and a ceiling plan), or close an open view. Active document only; view templates can't be opened and the last open view can't be closed. Does not change the model. Returns the active view after the call and the open views.",
+      "kind": "ui",
+      "risk": "none",
+      "toolset": "selection",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View, sheet or schedule name or id (list_views shows them).",
+            "type": "string"
+          },
+          "viewType": {
+            "description": "Revit view type to disambiguate a name shared by several views (FloorPlan, CeilingPlan, Section, ThreeD, DrawingSheet...).",
+            "type": "string"
+          },
+          "operation": {
+            "description": "activate (default) opens the view and makes it active; close closes it if it is open (never the last open view).",
+            "type": "string",
+            "enum": [
+              "activate",
+              "close"
+            ],
+            "default": "activate"
+          }
+        },
+        "required": [
+          "view"
+        ],
+        "additionalProperties": false
+      }
+    },
     {
       "name": "create_sheets",
       "description": "Create sheets in batch (real or placeholder): number, name, title block (\"Family: Type\", default title block if omitted), extra parameters and optional views/schedules placed at x/y in mm. Numbers are checked for forbidden characters and collisions (also within the request) before anything is created; names are read back. One transaction (one Ctrl+Z); all or nothing unless continueOnError. Undo: Ctrl+Z, or delete the returned sheet ids.",
@@ -87,6 +123,32 @@
         },
         "required": [
           "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delete_saved_selection",
+      "description": "Delete saved selections (selection filters) by name or id. Only the saved selection is removed, never its elements. Undo with Ctrl+Z right after. Supports dryRun.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "selection",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "names": {
+            "description": "Saved selections to delete, by name or id (1-100). The elements themselves are not touched.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "names"
         ],
         "additionalProperties": false
       }
@@ -356,6 +418,174 @@
       }
     },
     {
+      "name": "find_elements_in_volume",
+      "description": "Find the model elements inside rooms / MEP spaces (their real 3D volume, limited by the room's height) or inside a 3D box in mm. match=inside tests the element's location point (curve midpoint or bounding-box centre when it has none); match=intersects tests the element's solid geometry against the room's closed shell (box: bounding boxes). Filter by categories (any language). Rooms, areas, spaces and annotations are never returned. To select the result in Revit pass the ids to select_elements. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "roomIds": {
+            "description": "Rooms or MEP spaces whose volume is searched (1-50). Give roomIds or bbox.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "bbox": {
+            "description": "Search box in mm (project internal coordinates), instead of rooms.",
+            "type": "object",
+            "properties": {
+              "min": {
+                "description": "Lower corner.",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "z": {
+                    "description": "Z coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "z"
+                ],
+                "additionalProperties": false
+              },
+              "max": {
+                "description": "Upper corner.",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "z": {
+                    "description": "Z coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "z"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "additionalProperties": false
+          },
+          "categories": {
+            "description": "Only these categories (any language: OST_Furniture / Furniture / Mobiliário). Default: all model categories.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "match": {
+            "description": "inside (default): the element's location point / curve midpoint / box centre is inside; intersects: its geometry touches the volume.",
+            "type": "string",
+            "enum": [
+              "inside",
+              "intersects"
+            ],
+            "default": "inside"
+          },
+          "limitPerVolume": {
+            "description": "Most elements returned per room or box, 1-2000 (default 500); totals stay exact.",
+            "type": "integer",
+            "default": 500
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_element_details",
+      "description": "Details of up to 50 elements by id, UniqueId or \"linkInstanceId:elementId\": category, family and type, level, workset, phase created/demolished, design option, group, assembly, owner view, host, pinned, location (point and rotation, or curve end points, in mm and degrees) and bounding box in mm (linked elements: host coordinates). Optionally adds instance/type parameters in wire units (value + Revit's display text). Ids of a link's elements belong to the linked document. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "elementIds": {
+            "description": "Elements, as strings: id (\"123456\"), UniqueId, or \"linkInstanceId:elementId\" for an element inside a Revit link. 1-50.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "includeParameters": {
+            "description": "Parameters to add: none (default), instance, type or all. For full metadata use get_element_parameters.",
+            "type": "string",
+            "enum": [
+              "none",
+              "instance",
+              "type",
+              "all"
+            ],
+            "default": "none"
+          },
+          "parameters": {
+            "description": "Only these parameters (max 20), each {guid} | {builtIn} | {name}. Implies includeParameters=all when that is none.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "guid": {
+                  "description": "Shared parameter GUID. Wins over builtIn and name.",
+                  "type": "string"
+                },
+                "builtIn": {
+                  "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "elementIds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_element_parameters",
       "description": "Read the parameters of one or more elements (instance and/or type), with metadata: name, builtIn, guid, storage type, data type, group, read-only flag, value in wire units (mm, m2, m3, deg, %; ElementId values as the referenced element's name, raw id in 'raw'), and Revit's display text. Use builtIn or guid from the result to reference a parameter unambiguously in set_parameters. Elements inside links are readable with \"linkInstanceId:elementId\". Paged by element. Read-only.",
       "kind": "read",
@@ -439,6 +669,396 @@
       }
     },
     {
+      "name": "get_element_relationships",
+      "description": "How elements relate to others: host (and host face element), group and assembly they belong to (and members when the element is itself a group or assembly), owner view, design option, nested family super/sub-components, hosted inserts (doors/windows/openings of a wall, roof, floor), geometry joins, and optionally dependents (elements Revit deletes with it), filtered by category and capped per element. Useful before deleting or moving something. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "description": "Element ids of the target document (1-50).",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "includeDependents": {
+            "description": "Also list dependent elements (what Revit deletes with it: tags, sketches, hosted elements...). Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "dependentCategories": {
+            "description": "Only dependents of these categories (any language). Default: all with a category.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dependentsLimit": {
+            "description": "Most dependents listed per element, 1-1000 (default 100); the count stays exact.",
+            "type": "integer",
+            "default": 100
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_element_rooms",
+      "description": "Which room each element is in, for a phase (default: the last phase). Family instances use Revit's Room, From Room and To Room (doors/windows: the two sides; null = exterior). Other elements fall back to the room at their location point, curve midpoint or bounding-box centre (method reported, with a warning). Optionally returns the MEP space too. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "description": "Element ids (doors, windows, furniture, equipment, any placed element), 1-500.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "phase": {
+            "description": "Phase to evaluate rooms in (name or id). Default: the project's last phase.",
+            "type": "string"
+          },
+          "includeSpaces": {
+            "description": "Also return the MEP space containing the element (default false).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_link_elements",
+      "description": "Read elements inside a loaded Revit link (read-only): id, reference \"linkInstanceId:elementId\" (usable by get_element_details / get_element_parameters), name, category, family/type, level, location and bounding box in mm (in host coordinates by default, using the link's total transform) and the requested fields. Ids belong to the linked document. Links are never write targets: open the source RVT to edit it. Paged with total. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "description": "The Revit link instance: its id, or its file / type name (\"Structure.rvt\" or \"Structure\").",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Categories to read inside the link, any language: OST_Walls / Walls / Paredes (at least one).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "description": "Parameters to return for each element (wire units), each {guid} | {builtIn} | {name}.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "guid": {
+                  "description": "Shared parameter GUID. Wins over builtIn and name.",
+                  "type": "string"
+                },
+                "builtIn": {
+                  "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "coordinates": {
+            "description": "host (default): locations and boxes transformed into the host model; link: the link's own coordinates.",
+            "type": "string",
+            "enum": [
+              "host",
+              "link"
+            ],
+            "default": "host"
+          },
+          "limit": {
+            "description": "Page size, 1-2000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Elements to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "required": [
+          "link",
+          "categories"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_project_coordinates",
+      "description": "The model's coordinate systems: internal origin, Project Base Point and Survey Point (position in internal coordinates in mm, their shared values N/S, E/W, elevation in mm, angle to true north in degrees, clipped flag), the active shared location (offset and rotation of the internal origin in shared coordinates), named locations, and site latitude/longitude. Every tool works in internal coordinates in mm; use this to convert. With link: that link's transform into the host (origin mm, rotation deg). Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "description": "Optional Revit link (id or name): also return its transform into the host.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_project_info",
+      "description": "Project and document metadata: title, path, central model, worksharing, Revit version, Project Information fields (name, number, client, address, status, issue date, author, organization, building name; read by built-in parameter, so it works in any Revit language) and the active view. Ask for more with include[]: phases, worksets, levels (elevation mm), links, counts (elements per main category), units (display units) and parameters (every Project Information parameter in wire units). Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "include": {
+            "description": "Extra sections: phases, worksets, levels, links, counts, units, parameters (all Project Information parameters). Default: only the metadata.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "phases",
+                "worksets",
+                "levels",
+                "links",
+                "counts",
+                "units",
+                "parameters"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_room_boundaries",
+      "description": "Boundary loops of rooms, areas or MEP spaces: for each loop its segments (curve type, start/end and midpoint in mm, length mm) and the bounding element (wall, room separation line, column...; linkInstanceId + linkedElementId when the element is inside a Revit link). The first loop is the outer one, the others are holes. boundaryLocation picks the wall face (finish, center, core). Unplaced or unenclosed rooms return no loops and their status. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "description": "Room, area or space ids (1-50).",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "boundaryLocation": {
+            "description": "Which wall face bounds a room/space: finish (default), center, coreCenter or coreBoundary. Areas ignore it.",
+            "type": "string",
+            "enum": [
+              "finish",
+              "center",
+              "coreCenter",
+              "coreBoundary"
+            ],
+            "default": "finish"
+          },
+          "includeBoundaryElements": {
+            "description": "Return the bounding element of each segment (id, category, link) (default true).",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_room_openings",
+      "description": "Doors and windows of each room, resolved per phase with Revit's From Room / To Room (not by geometry): for each opening its id, category, family/type, mark, width/height in mm, host wall, side (from/to), the room on the other side (null = exterior), phase status (New, Existing, Demolished, Temporary) and optional orientation and parameters. By default each room is evaluated in its own phase; pass phase to force one. Openings hosted in linked walls are not seen. Paged by room. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "roomIds": {
+            "description": "Rooms by id. Combine with roomNumbers / level, or omit all three for every placed room.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "roomNumbers": {
+            "description": "Rooms by number (exact, case ignored).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "level": {
+            "description": "Only rooms on this level (name or id).",
+            "type": "string"
+          },
+          "categories": {
+            "description": "doors, windows or both (default both).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "doors",
+                "windows"
+              ]
+            }
+          },
+          "phase": {
+            "description": "Phase used for From/To Room and to decide which openings exist (name or id). Default: each room's own phase.",
+            "type": "string"
+          },
+          "parameters": {
+            "description": "Extra parameters to read on each opening (instance, then type), each {guid} | {builtIn} | {name}.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "guid": {
+                  "description": "Shared parameter GUID. Wins over builtIn and name.",
+                  "type": "string"
+                },
+                "builtIn": {
+                  "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "includeOrientation": {
+            "description": "Return facing/hand orientation vectors and flips (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "description": "Rooms per page, 1-500 (default 50).",
+            "type": "integer",
+            "default": 50
+          },
+          "offset": {
+            "description": "Rooms to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_session_changes",
+      "description": "What changed in the target document during this session: net created / modified / deleted elements (id, UniqueId, name, category, transaction names, by MCP or by the user), the last created element still in the model, and lastSeq to ask again for only newer changes (sinceSeq). Tracking starts at the first call of this tool in the Revit session (earlier changes are unknown: the first call returns trackingStarted=true). Undo/redo is included. Filter by time, categories or onlyByMcp; paged. operation=reset starts a new baseline. Does not change the model.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "get (default): report changes; reset: forget what was recorded for this document and start a new baseline.",
+            "type": "string",
+            "enum": [
+              "get",
+              "reset"
+            ],
+            "default": "get"
+          },
+          "sinceSeq": {
+            "description": "Only events after this sequence number (lastSeq of a previous call). Default: since tracking started.",
+            "type": "integer"
+          },
+          "since": {
+            "description": "Only events after this ISO-8601 time (e.g. 2026-10-17T14:00:00Z).",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Only elements of these categories (any language).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "onlyByMcp": {
+            "description": "Only changes made by this MCP's framework tools (transactions named \"MCP: ...\"), default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "includeModified": {
+            "description": "Include modified elements (default true; modifications are often numerous).",
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "description": "Page size, 1-2000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Items to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_session_context",
       "description": "Call first. Returns this Revit session's state: add-in version and capabilityHash (compare with the server's manifest to detect an outdated add-in), Revit version/build/language, every open document (docId, title, isFamilyDocument, isWorkshared, isActive, isReadOnly, isModified), the active document, the targeted document, the active view and the number of queued tool calls.",
       "kind": "read",
@@ -450,6 +1070,429 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_families",
+      "description": "List the loadable and in-place families of the model: id, name, category, in-place and editable flags, type count, placed instance count, optionally each type (id, name, instance count). Filter by name text, categories (any language), in-place, or onlyUnused (purge candidates). System families (walls, floors, roofs...) are not Family elements: use get_available_family_types or find_elements with elementKind=types for those. Ordered by category then name, paged. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "nameContains": {
+            "description": "Only families whose name contains this text (case and accents ignored).",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Only families of these categories (any language: OST_Doors / Doors / Portas).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "includeTypes": {
+            "description": "List the types of each family (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "includeInstanceCount": {
+            "description": "Count placed instances per family (and per type when includeTypes) (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "onlyUnused": {
+            "description": "Only families without any placed instance (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "inPlace": {
+            "description": "false = only loadable families, true = only in-place families, any (default).",
+            "type": "string",
+            "enum": [
+              "true",
+              "false",
+              "any"
+            ],
+            "default": "any"
+          },
+          "limit": {
+            "description": "Page size, 1-2000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Families to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_levels",
+      "description": "List the levels ordered by elevation: id, name, elevation in mm relative to the internal origin (elevationMm), the elevation Revit displays (displayedElevationMm, relative to the Project Base Point or Survey Point according to the level type's Elevation Base), building story flag, and the floor/ceiling plan views associated with it. Optionally counts the elements on each level. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "includeElementCounts": {
+            "description": "Also count the model elements associated with each level (slower on big models; default false).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_phases",
+      "description": "List the project phases in chronological order (id, name, order; the last one is where new work normally goes) and the phase filters with the presentation of each phase status (New, Existing, Demolished, Temporary: ShowByCategory, ShowOverriden or DontShow). Phase names are translated by Revit (\"Existing\" / \"Existente\"): pass ids to other tools when in doubt. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "includePhaseFilters": {
+            "description": "Also list the phase filters and how each shows New/Existing/Demolished/Temporary elements (default true).",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_saved_selections",
+      "description": "List the saved selections of the model (Manage > Saved Selections, stored as selection filters): id, name, element count (elements that still exist) and optionally their ids. Select one in the UI with select_elements {savedSelection}; create with save_selection; delete with delete_saved_selection. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "selection",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "nameContains": {
+            "description": "Only names containing this text (case and accents ignored).",
+            "type": "string"
+          },
+          "includeIds": {
+            "description": "Return the element ids of each saved selection (up to idsLimit each; default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "idsLimit": {
+            "description": "Most ids returned per saved selection, 1-5000 (default 500).",
+            "type": "integer",
+            "default": 500
+          },
+          "limit": {
+            "description": "Page size, 1-1000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Items to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_spatial_elements",
+      "description": "List rooms, areas or MEP spaces with number, name, level, phase, area scheme, area (m2), perimeter (mm), volume (m3; 0 unless volume computation is on) and status: placed, notPlaced (deleted from plan but still in schedules), notEnclosed (placed but not bounded, area 0) or redundant (placed in a region another one already occupies). Filter by level, phase, area scheme, status, name/number text. Ordered by level then number, paged with total. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "room (default), area or space (MEP).",
+            "type": "string",
+            "enum": [
+              "room",
+              "area",
+              "space"
+            ],
+            "default": "room"
+          },
+          "level": {
+            "description": "Only on this level (name or id).",
+            "type": "string"
+          },
+          "phase": {
+            "description": "Only rooms/spaces of this phase (name or id). Areas have no phase.",
+            "type": "string"
+          },
+          "areaScheme": {
+            "description": "Only areas of this area scheme (name or id), e.g. Gross Building / Rentable.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Only these statuses: placed, notPlaced, notEnclosed, redundant. Default: all.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "placed",
+                "notPlaced",
+                "notEnclosed",
+                "redundant"
+              ]
+            }
+          },
+          "nameContains": {
+            "description": "Only names containing this text (case and accents ignored).",
+            "type": "string"
+          },
+          "numberContains": {
+            "description": "Only numbers containing this text.",
+            "type": "string"
+          },
+          "fields": {
+            "description": "Extra parameters to return for each item (wire units), each {guid} | {builtIn} | {name}.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "guid": {
+                  "description": "Shared parameter GUID. Wins over builtIn and name.",
+                  "type": "string"
+                },
+                "builtIn": {
+                  "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "limit": {
+            "description": "Page size, 1-2000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Items to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_views",
+      "description": "List views, schedules, legends, sheets and view templates with filters (viewTypes, isTemplate, nameContains, onSheet, level). Each item: id, name, viewType, isTemplate, level, scale, detail level, discipline, phase, view template applied, and the sheet(s) where it is placed. Internal views (project/system browser, revision schedules of title blocks) are excluded. Optionally lists the view family types. Ordered by type then name, paged with total. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "viewTypes": {
+            "description": "Only these Revit view types, e.g. FloorPlan, CeilingPlan, Elevation, Section, ThreeD, DraftingView, Legend, Schedule, DrawingSheet, AreaPlan, Detail, EngineeringPlan.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isTemplate": {
+            "description": "false = only views (default), true = only view templates, any = both.",
+            "type": "string",
+            "enum": [
+              "false",
+              "true",
+              "any"
+            ],
+            "default": "false"
+          },
+          "nameContains": {
+            "description": "Only names containing this text (case and accents ignored).",
+            "type": "string"
+          },
+          "onSheet": {
+            "description": "true = only views placed on a sheet, false = only views not placed, any (default).",
+            "type": "string",
+            "enum": [
+              "true",
+              "false",
+              "any"
+            ],
+            "default": "any"
+          },
+          "level": {
+            "description": "Only plan views of this level (name or id).",
+            "type": "string"
+          },
+          "includeViewFamilyTypes": {
+            "description": "Also return the view family types (used to create views), default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "description": "Page size, 1-2000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Views to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_worksets",
+      "description": "List the worksets of a workshared model: id, name, kind, whether it is the active workset, open, editable by this user, owner, default visibility, optionally element counts. A model without worksharing returns isWorkshared=false and an empty list (not an error). Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "includeSystem": {
+            "description": "Also list system worksets (families, standards, views), default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "includeElementCounts": {
+            "description": "Count the elements in each user workset (slow on big models; default false).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "save_selection",
+      "description": "Save a named selection in the model (the same as Manage > Save Selection, synchronized to central with the model): the given element ids, or the current UI selection. With overwrite=true an existing saved selection of the same name gets the new elements. Returns its id and the element count read back. Undo with Ctrl+Z or delete_saved_selection. Supports dryRun.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "selection",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Name of the saved selection.",
+            "type": "string"
+          },
+          "elementIds": {
+            "description": "Elements to save, by id or UniqueId (strings). Default: the current UI selection (target must be the active document).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "overwrite": {
+            "description": "Replace the elements of an existing saved selection with the same name (default false).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "select_elements",
+      "description": "Change the selection in Revit's UI (active document only): replace, add, remove or clear, with elements given by id/UniqueId, by a saved selection, or as everything visible in a view (optionally by category). Sources can be combined. Optionally zooms to the result. Does not change the model; elements inside links can't be selected this way. Returns the final selection count.",
+      "kind": "ui",
+      "risk": "none",
+      "toolset": "selection",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "description": "replace (default) the selection, add to it, remove from it, or clear it.",
+            "type": "string",
+            "enum": [
+              "replace",
+              "add",
+              "remove",
+              "clear"
+            ],
+            "default": "replace"
+          },
+          "elementIds": {
+            "description": "Elements by id or UniqueId (strings), max 5000.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "savedSelection": {
+            "description": "Use the elements of this saved selection (name or id).",
+            "type": "string"
+          },
+          "visibleInView": {
+            "description": "Use the elements visible in a view, optionally by category.",
+            "type": "object",
+            "properties": {
+              "view": {
+                "description": "View name or id (default: the active view).",
+                "type": "string"
+              },
+              "categories": {
+                "description": "Only these categories (any language). Default: every selectable element visible in the view.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "zoom": {
+            "description": "Also zoom Revit to the resulting selection (default false).",
+            "type": "boolean",
+            "default": false
+          }
+        },
         "additionalProperties": false
       }
     },
@@ -689,6 +1732,96 @@
             "default": false
           }
         },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_view_temporary_visibility",
+      "description": "Control what a view shows, by elements or categories: isolate_temp / hide_temp (Temporary Hide/Isolate, cleared with reset_temp or by closing the view: handy to show the user what a plan will touch), hide / unhide (permanent, only in that view; undo with unhide or Ctrl+Z), show_attached_groups / hide_attached_groups for model groups. Category changes are refused when a view template controls visibility. Temporary operations are skipped in dryRun (only validated). Default view: the active one.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "selection",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "isolate_temp / hide_temp (temporary hide/isolate, not saved with the view), reset_temp (end temporary hide/isolate), hide / unhide (permanent, in this view only), show_attached_groups / hide_attached_groups (attached detail groups of model groups).",
+            "type": "string",
+            "enum": [
+              "isolate_temp",
+              "hide_temp",
+              "reset_temp",
+              "hide",
+              "unhide",
+              "show_attached_groups",
+              "hide_attached_groups"
+            ]
+          },
+          "elementIds": {
+            "description": "Element ids (strings: id or UniqueId). For *_attached_groups: the model group ids.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "categories": {
+            "description": "Categories (any language) instead of / besides elements: isolate_temp/hide_temp/hide/unhide act on the whole category.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "view": {
+            "description": "View name or id. Default: the active view (target must be the active document).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "show_elements",
+      "description": "Show elements to the user in Revit: optionally activates the given view and zooms to the elements there (with a margin), otherwise lets Revit pick a view that shows them (it may open one); selects them by default. Active document only; does not change the model. Elements not visible in the chosen view are reported.",
+      "kind": "ui",
+      "risk": "none",
+      "toolset": "selection",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "elementIds": {
+            "description": "Elements to show, by id or UniqueId (strings), 1-1000.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "view": {
+            "description": "View to show them in (name or id). Default: Revit picks a suitable view (may open one).",
+            "type": "string"
+          },
+          "select": {
+            "description": "Also select the elements (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "marginPercent": {
+            "description": "With view: extra margin around the elements when zooming, 0-500 % of their extent (default 20).",
+            "type": "integer",
+            "default": 20
+          }
+        },
+        "required": [
+          "elementIds"
+        ],
         "additionalProperties": false
       }
     }
