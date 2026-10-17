@@ -31,7 +31,9 @@ namespace revit_mcp_plugin.Core
         private ILogger _logger;
         private RevitApplication _app;         // full app, for enumerating Documents
         private string _revitVersion = "unknown";
-        private string _activeDocId;
+        // The active document itself, not its id: the id gains a ~suffix when a second copy of the same file opens
+        // later, and a cached id would then match no document (writes to it were refused as "background").
+        private Document _activeDoc;
 
         /// <summary>Raised whenever the open-document set or the active document changes.</summary>
         public event Action StateChanged;
@@ -109,7 +111,7 @@ namespace revit_mcp_plugin.Core
             {
                 if (sender is UIApplication uiApp)
                     _app = uiApp.Application;
-                _activeDocId = DocIdOf(args.Document);
+                _activeDoc = args.Document;
             }
             catch { /* ignore */ }
             RaiseStateChanged();
@@ -179,7 +181,14 @@ namespace revit_mcp_plugin.Core
         }
 
         /// <summary>docId of the active document, if known.</summary>
-        public string ActiveDocId => _activeDocId;
+        public string ActiveDocId
+        {
+            get
+            {
+                try { return _activeDoc != null && _activeDoc.IsValidObject ? DocIdOf(_activeDoc) : null; }
+                catch { return null; }
+            }
+        }
 
         /// <summary>
         /// A UIApplication built from the captured Application, or null if Revit
@@ -223,7 +232,7 @@ namespace revit_mcp_plugin.Core
                         ["docId"] = docId,
                         ["title"] = doc.Title,
                         ["pathName"] = doc.PathName ?? "",
-                        ["isActive"] = docId == _activeDocId,
+                        ["isActive"] = docId == ActiveDocId,
                         ["isWorkshared"] = doc.IsWorkshared,
                         ["revitVersion"] = _revitVersion,
                     });
