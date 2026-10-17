@@ -568,7 +568,52 @@ namespace RevitMCP.Manifest
             }
             var arr = token as JArray;
             if (arr != null) return new JArray(arr.Select(Canonicalize).ToArray());
+            if (token.Type == JTokenType.Float) return new JRaw(JsNumber(token.Value<double>()));
             return token.DeepClone();
+        }
+
+        /// <summary>
+        /// Formats a double exactly like JavaScript's Number#toString (shortest round-trip digits, exponent only
+        /// below 1e-6 or from 1e21), so the server's canonical JSON — and the capabilityHash — match.
+        /// Newtonsoft would write 0.000001 as "1E-06".
+        /// </summary>
+        public static string JsNumber(double d)
+        {
+            if (double.IsNaN(d) || double.IsInfinity(d)) return "null";
+            if (d == 0) return "0";
+            string r = d.ToString("R", CultureInfo.InvariantCulture);
+            bool negative = r[0] == '-';
+            if (negative) r = r.Substring(1);
+
+            // Split "d.dddE±x" (or plain decimal) into significant digits and a decimal exponent.
+            int exp = 0;
+            int e = r.IndexOfAny(new[] { 'E', 'e' });
+            if (e >= 0)
+            {
+                exp = int.Parse(r.Substring(e + 1), CultureInfo.InvariantCulture);
+                r = r.Substring(0, e);
+            }
+            int dot = r.IndexOf('.');
+            string digits = dot >= 0 ? r.Remove(dot, 1) : r;
+            int pointPos = (dot >= 0 ? dot : r.Length) + exp; // decimal point position within digits
+            int lead = 0;
+            while (lead < digits.Length - 1 && digits[lead] == '0') { lead++; pointPos--; }
+            digits = digits.Substring(lead).TrimEnd('0');
+            if (digits.Length == 0) return "0";
+
+            // JS: n = pointPos; k = digits.Length; scientific when n > 21 or n <= -6.
+            int n = pointPos, k = digits.Length;
+            string s;
+            if (k <= n && n <= 21) s = digits + new string('0', n - k);
+            else if (0 < n && n <= 21) s = digits.Substring(0, n) + "." + digits.Substring(n);
+            else if (-6 < n && n <= 0) s = "0." + new string('0', -n) + digits;
+            else
+            {
+                int x = n - 1;
+                string mant = k == 1 ? digits : digits.Substring(0, 1) + "." + digits.Substring(1);
+                s = mant + "e" + (x >= 0 ? "+" : "-") + Math.Abs(x).ToString(CultureInfo.InvariantCulture);
+            }
+            return negative ? "-" + s : s;
         }
     }
 }
