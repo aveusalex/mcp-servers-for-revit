@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+      Test fixture for ManifestGen ONLY. It mimics the shape of RevitMCPCommandSet.Framework (Contract A) with
+      stand-in types matched by name, plus a few sample tools, so the generator can be exercised without Revit.
+      Never referenced by the add-in or shipped.
+    -->
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>disable</Nullable>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <AssemblyName>ManifestGen.Fixture</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    </ItemGroup>
+
+</Project>

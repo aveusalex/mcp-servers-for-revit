@@ -13,8 +13,11 @@
     "scripts": {
         "clean": "rimraf build",
         "prebuild": "npm run clean",
-        "build": "tsc",
+        "build": "tsc && node scripts/copy-assets.mjs",
         "test": "npm run build && node --test test/*.test.js",
+        "manifest": "node scripts/manifest.mjs",
+        "manifest:check": "node scripts/manifest.mjs --check",
+        "manifest:sample": "node scripts/manifest.mjs --sample",
         "prepublishOnly": "npm run build"
     },
     "files": [
