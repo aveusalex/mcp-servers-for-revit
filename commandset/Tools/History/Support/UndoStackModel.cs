@@ -91,14 +91,17 @@ namespace RevitMCPCommandSet.Tools.History.Support
                 case "TransactionGroupRolledBack":
                     // A rolled-back group (dryRun preview) takes back the commits made inside it: drop the top
                     // entries whose name matches (the group is "MCP: tool (dry run)", its commits "MCP: tool").
+                    // One entry per inner transaction name (at least one), so an earlier real commit of the same
+                    // tool below it is kept.
                     var bases = new HashSet<string>(names.Select(n => n.Replace(" (dry run)", "").Trim()), StringComparer.Ordinal);
-                    var removed = 0;
-                    while (Undo.Count > 0 && Undo[Undo.Count - 1].Seq < ev.Seq &&
-                           (bases.Count == 0 || bases.Contains(Undo[Undo.Count - 1].Transaction) ||
-                            bases.Any(b => Undo[Undo.Count - 1].Transaction.StartsWith(b, StringComparison.Ordinal))))
+                    var toRemove = Math.Max(1, names.Count(n => !n.EndsWith("(dry run)", StringComparison.Ordinal)));
+                    for (var k = 0; k < toRemove && Undo.Count > 0; k++)
                     {
+                        var top = Undo[Undo.Count - 1];
+                        var match = bases.Count == 0 || bases.Contains(top.Transaction) ||
+                                    bases.Any(b => top.Transaction.StartsWith(b, StringComparison.Ordinal));
+                        if (!match) break;
                         Undo.RemoveAt(Undo.Count - 1);
-                        if (++removed >= 50 || bases.Count == 0) break;
                     }
                     break;
             }
