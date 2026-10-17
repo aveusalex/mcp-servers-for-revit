@@ -137,6 +137,7 @@ namespace RevitMCPCommandSet.Framework.Services
             var v = ValueCoercion.ToPrimitive(value);
             switch (v)
             {
+                case bool b: return b ? 1 : 0;
                 case long l: return l;
                 case double d: return d;
                 case string s when double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var p): return p;
