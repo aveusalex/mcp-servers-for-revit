@@ -349,7 +349,7 @@ namespace RevitMCPCommandSet.Framework.Services
                     raw = v;
                     if (v == -1) return null;
                     if (v < 0) return v; // built-in ids (categories, parameters)
-                    return _doc.GetElement(id)?.Name ?? (object)v;
+                    return DocOf(p).GetElement(id)?.Name ?? (object)v;
                 }
                 default:
                     return null;
@@ -377,7 +377,7 @@ namespace RevitMCPCommandSet.Framework.Services
                 case StorageType.ElementId:
                     var id = p.AsElementId();
                     if (id != null && id != ElementId.InvalidElementId)
-                        s.Text = id.GetValue() > 0 ? _doc.GetElement(id)?.Name : SafeValueString(p);
+                        s.Text = id.GetValue() > 0 ? DocOf(p).GetElement(id)?.Name : SafeValueString(p);
                     break;
             }
             if (!p.HasValue && s.Number.HasValue && p.StorageType == StorageType.Double) s.Number = null;
@@ -776,6 +776,9 @@ namespace RevitMCPCommandSet.Framework.Services
             try { return p.Definition?.GetGroupTypeId()?.TypeId; }
             catch { return null; }
         }
+
+        /// <summary>The document that owns the parameter (a link document for linked elements).</summary>
+        private Document DocOf(Parameter p) => p.Element?.Document ?? _doc;
 
         public static string SafeValueString(Parameter p)
         {
