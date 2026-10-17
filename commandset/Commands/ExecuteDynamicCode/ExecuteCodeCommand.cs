@@ -32,24 +32,25 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
                 string code = parameters["code"].Value<string>();
                 JArray parametersArray = parameters["parameters"] as JArray;
                 object[] executionParameters = parametersArray?.ToObject<object[]>() ?? Array.Empty<object>();
-                string transactionMode = parameters["transactionMode"]?.Value<string>() ?? ExecuteCodeEventHandler.TransactionModeAuto;
+                string requestedMode = parameters["transactionMode"]?.Value<string>();
+                string transactionMode = ExecuteCodeEventHandler.NormalizeTransactionMode(requestedMode)
+                    ?? throw new ArgumentException(
+                        $"Invalid transactionMode '{requestedMode}'. Use 'auto' (commit), 'rollback' (read mode: always rolled back) or 'none' (no transaction).");
 
-                // 设置执行参数
                 _handler.SetExecutionParameters(code, executionParameters, transactionMode);
 
-                // 触发外部事件并等待完成
-                if (RaiseAndWaitForCompletion(60000)) // 1分钟超时
+                if (RaiseAndWaitForCompletion(60000))
                 {
                     return _handler.ResultInfo;
                 }
                 else
                 {
-                    throw new TimeoutException("代码执行超时");
+                    throw new TimeoutException("Code execution timed out after 60 seconds.");
                 }
             }
             catch (Exception ex)
             {
-                throw new Exception($"执行代码失败: {ex.Message}", ex);
+                throw new Exception($"Code execution failed: {ex.Message}", ex);
             }
         }
     }
