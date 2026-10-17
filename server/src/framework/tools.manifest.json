@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "3675ff103fb2f5c98be51c92fd1347ccf8344e1b48e2081dca609c1055dc5a6d",
+  "capabilityHash": "343f95f3e3a86679fd711cc27e2025fe2bba4182d88db28a3567c14d77eb79b9",
   "tools": [
     {
       "name": "activate_view",
@@ -34,6 +34,93 @@
         },
         "required": [
           "view"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "align_distribute_elements",
+      "description": "Align elements (line up their min/center/max bounding-box edge on an axis, at the first/last/min/max element, another element or a coordinate in mm) or distribute them evenly between the two outermost ones (or at a fixed spacing in mm, or with equal clear gaps). Uses world-axis bounding boxes (rotated elements use their box). Pinned/grouped elements are refused; hosted elements whose host also moves are skipped. Returns per-element movement read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "editing",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "elementIds": {
+            "description": "Elements to align or distribute (at least 2).",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "mode": {
+            "description": "align: line up one edge/centre of every element. distribute: space them evenly between the two outermost ones (which stay put).",
+            "type": "string",
+            "enum": [
+              "align",
+              "distribute"
+            ]
+          },
+          "axis": {
+            "description": "Axis along which elements move (project internal X/Y/Z). E.g. align left edges = axis x, edge min.",
+            "type": "string",
+            "enum": [
+              "x",
+              "y",
+              "z"
+            ]
+          },
+          "edge": {
+            "description": "Which part of each element's bounding box is aligned / evenly spaced: min (left/bottom), center (default) or max (right/top).",
+            "type": "string",
+            "enum": [
+              "min",
+              "center",
+              "max"
+            ],
+            "default": "center"
+          },
+          "reference": {
+            "description": "align: where the line is. first/last = that element of elementIds (default first); min/max = the lowest/highest edge among them; element = referenceElementId; value = coordinate.",
+            "type": "string",
+            "enum": [
+              "first",
+              "last",
+              "min",
+              "max",
+              "element",
+              "value"
+            ],
+            "default": "first"
+          },
+          "referenceElementId": {
+            "description": "align with reference element: the element whose edge is the line (may be outside elementIds; it does not move).",
+            "type": "integer"
+          },
+          "coordinate": {
+            "description": "align with reference value: the coordinate on the axis, in mm.",
+            "type": "number",
+            "x-unit": "mm"
+          },
+          "equalGaps": {
+            "description": "distribute: make the clear gaps between bounding boxes equal instead of spacing the chosen edge evenly. Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "spacing": {
+            "description": "distribute: fixed step in mm from the first (lowest) element instead of spreading between the outermost ones (edge step, or clear gap with equalGaps).",
+            "type": "number",
+            "x-unit": "mm"
+          }
+        },
+        "required": [
+          "elementIds",
+          "mode",
+          "axis"
         ],
         "additionalProperties": false
       }
@@ -226,6 +313,154 @@
         "required": [
           "views",
           "template"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "array_elements",
+      "description": "Array elements linearly (along a vector in mm) or radially (around an axis, angle in degrees). count includes the originals (2-200); measure says whether vector/angle is the step or reaches the last member. By default makes independent copies; associative:true creates a Revit array element (needs view). Pinned or grouped elements are refused. Returns the new ids per copy. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "editing",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "elementIds": {
+            "description": "Elements to array (copied together as one set).",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "type": {
+            "description": "linear (copies along a vector) or radial (copies around an axis).",
+            "type": "string",
+            "enum": [
+              "linear",
+              "radial"
+            ]
+          },
+          "count": {
+            "description": "Number of members INCLUDING the originals, like Revit's Array (2-200). count 5 = originals + 4 copies.",
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 200
+          },
+          "measure": {
+            "description": "spacing (default): vector/angle is the step between neighbours. lastCopy: vector/angle reaches the last member and the copies are spread evenly (a 360° radial array with lastCopy spreads count members around the full circle).",
+            "type": "string",
+            "enum": [
+              "spacing",
+              "lastCopy"
+            ],
+            "default": "spacing"
+          },
+          "vector": {
+            "description": "linear: displacement in mm (step or total, see measure), e.g. {x:1200,y:0,z:0}.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate (project internal origin). Unit: mm.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate (project internal origin). Unit: mm.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z coordinate (project internal origin). Unit: mm.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ],
+            "additionalProperties": false
+          },
+          "center": {
+            "description": "radial: a point on the rotation axis, in mm.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate (project internal origin). Unit: mm.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate (project internal origin). Unit: mm.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z coordinate (project internal origin). Unit: mm.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ],
+            "additionalProperties": false
+          },
+          "angle": {
+            "description": "radial: angle in degrees (step or total, see measure); positive = counter-clockwise seen from the axis direction.",
+            "type": "number",
+            "x-unit": "deg"
+          },
+          "axisDirection": {
+            "description": "radial: direction of the rotation axis. Default vertical (0,0,1).",
+            "type": "object",
+            "properties": {
+              "dx": {
+                "description": "X component of the direction (any scale).",
+                "type": "number"
+              },
+              "dy": {
+                "description": "Y component of the direction (any scale).",
+                "type": "number"
+              },
+              "dz": {
+                "description": "Z component of the direction (any scale).",
+                "type": "number"
+              }
+            },
+            "required": [
+              "dx",
+              "dy",
+              "dz"
+            ],
+            "additionalProperties": false
+          },
+          "rotateCopies": {
+            "description": "radial: rotate each copy with the array (default true). false keeps the copies' orientation and only moves them around the axis.",
+            "type": "boolean",
+            "default": true
+          },
+          "associative": {
+            "description": "false (default): independent copies. true: a Revit array element (members grouped and editable as an array in Revit); needs view.",
+            "type": "boolean",
+            "default": false
+          },
+          "view": {
+            "description": "associative only: the view the array is created in (name or id); for view-specific elements, their own view.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "elementIds",
+          "type",
+          "count"
         ],
         "additionalProperties": false
       }
@@ -2561,6 +2796,111 @@
       }
     },
     {
+      "name": "create_reference_plane",
+      "description": "Create a reference plane between two points in mm (bubble end and free end) in an explicit view (name or id, never the active view implicitly). cutVector, a direction in the plane perpendicular to the line, defaults to the view direction, so in a plan you get a vertical plane. Optional unique name. Returns the id, ends and normal read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View the plane is drawn in, by name or id (never the active view implicitly). Plans, sections, elevations and 3D views work.",
+            "type": "string"
+          },
+          "bubbleEnd": {
+            "description": "Bubble end in mm. z defaults to the plan's level elevation (0 in other views).",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "freeEnd": {
+            "description": "Free end in mm. z defaults like bubbleEnd.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "cutVector": {
+            "description": "A direction lying in the plane, perpendicular to bubbleEnd→freeEnd. Default: the view direction (vertical in plans), giving a plane seen edge-on in that view.",
+            "type": "object",
+            "properties": {
+              "dx": {
+                "description": "X component of the direction (any scale).",
+                "type": "number"
+              },
+              "dy": {
+                "description": "Y component of the direction (any scale).",
+                "type": "number"
+              },
+              "dz": {
+                "description": "Z component of the direction (any scale).",
+                "type": "number"
+              }
+            },
+            "required": [
+              "dx",
+              "dy",
+              "dz"
+            ],
+            "additionalProperties": false
+          },
+          "name": {
+            "description": "Name of the reference plane (must be unique). Optional.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view",
+          "bubbleEnd",
+          "freeEnd"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "create_revision",
       "description": "Create revisions (description, date text, issued by/to, numbering sequence, visibility, issued flag set last) and optionally add them to sheets without clouds. Each field is read back. Undo: Ctrl+Z or delete the returned revision ids (issued revisions must be un-issued first).",
       "kind": "write",
@@ -3666,6 +4006,105 @@
       }
     },
     {
+      "name": "create_similar",
+      "description": "Create a new element like an existing one (Revit's Create Similar): same type, level, offset, rotation, flips and host unless overridden, at a new point or line in mm. Supports family instances (point, hosted, face-based, line-based, structural columns/beams), walls (location/end = centerline), grids and model/detail lines. Floors, ceilings, roofs and rooms are refused with the tool to use. copyParameters copies user parameters. Returns the new id read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sourceElementId": {
+            "description": "The existing element to imitate (its type, level, offset, rotation, flips and host are reused unless overridden).",
+            "type": "integer"
+          },
+          "location": {
+            "description": "Insertion point in mm, or the START of the line for walls, beams, line-based families, grids and lines. z only matters for lines and when no level applies.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "end": {
+            "description": "END of the line in mm (walls, beams/braces, line-based families, grids, model/detail lines).",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "level": {
+            "description": "Level by name or id. Default: the source's level.",
+            "type": "string"
+          },
+          "offset": {
+            "description": "Offset from the level in mm (wall base offset / instance elevation). Default: the source's.",
+            "type": "number",
+            "x-unit": "mm"
+          },
+          "rotation": {
+            "description": "Rotation in degrees for point-placed instances. Default: the source's rotation.",
+            "type": "number",
+            "x-unit": "deg"
+          },
+          "hostId": {
+            "description": "Host for hosted / face-based families (e.g. another wall for a door). Default: the source's host.",
+            "type": "integer"
+          },
+          "copyParameters": {
+            "description": "Also copy the source's writable project/shared/family instance parameters and Comments (never Mark, levels, offsets or other built-in geometry parameters). Default false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "sourceElementId",
+          "location"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "create_text_note",
       "description": "Create text notes in a view or sheet (batch): text, position in the view plane in mm (plans: model X/Y; sections/elevations: horizontal coordinate and elevation), text type by name, wrap width in paper mm, rotation in degrees and alignment. One transaction, all or nothing. Returns the note ids and positions read back. Undo: Ctrl+Z or delete the returned ids.",
       "kind": "write",
@@ -4311,6 +4750,45 @@
       }
     },
     {
+      "name": "delete_elements",
+      "description": "Delete elements by id, all or nothing: missing, pinned (unless allowPinned) or undeletable ids make the call fail before anything is deleted. Revit also deletes dependents (tags, dimensions, hosted doors/windows, views of a level...); the result lists them by category. Preview by default: without dryRun:false it only reports what would be deleted. Undo: Ctrl+Z (one transaction).",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "editing",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "elementIds": {
+            "description": "Elements to delete. Every id must exist and be deletable, otherwise nothing is deleted.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "allowPinned": {
+            "description": "Also delete pinned elements. Default false: pinned elements make the whole call fail.",
+            "type": "boolean",
+            "default": false
+          },
+          "listLimit": {
+            "description": "Maximum deleted elements listed one by one, 0-2000 (default 200). Counts are always complete.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 200
+          }
+        },
+        "required": [
+          "elementIds"
+        ],
+        "additionalProperties": false
+      },
+      "dryRunDefault": true
+    },
+    {
       "name": "delete_saved_selection",
       "description": "Delete saved selections (selection filters) by name or id. Only the saved selection is removed, never its elements. Undo with Ctrl+Z right after. Supports dryRun.",
       "kind": "write",
@@ -4676,6 +5154,153 @@
         },
         "required": [
           "views"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "edit_element_curve",
+      "description": "Edit the line of walls, beams/braces, line-based families and model/detail lines: set endpoints, extend/shorten by a distance, extend/trim to a reference (wall/line/grid/reference plane), trim two elements to their corner, split one into two (walls keep their doors on the right part), or offset sideways (move or copy). All in mm. Wall joins are released during the change; if Revit still refuses, a wall without inserts is recreated (new id, reported). Returns before/after read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "editing",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "setEndpoints (new start/end), extendBy (lengthen/shorten one end by distance), extendTo (extend/trim to a reference line), trimToCorner (two elements meet at their intersection), split (into two at a point), offset (move/copy sideways by distance).",
+            "type": "string",
+            "enum": [
+              "setEndpoints",
+              "extendBy",
+              "extendTo",
+              "trimToCorner",
+              "split",
+              "offset"
+            ]
+          },
+          "elementIds": {
+            "description": "Walls, beams/braces, line-based instances or model/detail lines. setEndpoints/extendBy/split: one; trimToCorner: two; extendTo/offset: one or more.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "start": {
+            "description": "setEndpoints: new start point in mm (z defaults to the current one). Omit to keep it.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "end": {
+            "description": "setEndpoints: new end point in mm (z defaults to the current one). Omit to keep it.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "whichEnd": {
+            "description": "extendBy / extendTo: which end changes. auto (default) = end for extendBy, the end nearer the reference for extendTo.",
+            "type": "string",
+            "enum": [
+              "auto",
+              "start",
+              "end"
+            ],
+            "default": "auto"
+          },
+          "distance": {
+            "description": "extendBy: mm to add (negative shortens). offset: sideways distance in mm, positive = to the left of start→end (seen from above).",
+            "type": "number",
+            "x-unit": "mm"
+          },
+          "referenceId": {
+            "description": "extendTo: element whose line is the target (wall/beam/line location line, grid or reference plane; unbounded).",
+            "type": "integer"
+          },
+          "splitPoint": {
+            "description": "split: point in mm, projected onto the element's curve.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "X coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Y coordinate in mm from the project's internal origin.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "z": {
+                "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "ratio": {
+            "description": "split: alternative to splitPoint, fraction of the length from the start (0-1 exclusive), e.g. 0.5 = middle.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "copy": {
+            "description": "offset: make offset copies and keep the originals. Default false (move).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "operation",
+          "elementIds"
         ],
         "additionalProperties": false
       }
@@ -6916,6 +7541,65 @@
       "dryRunDefault": true
     },
     {
+      "name": "join_cut_geometry",
+      "description": "Join or unjoin the geometry of element pairs (walls, floors, columns, beams...), switch which one cuts the other, or cut / uncut (b cuts a: void cut when b is a family with unattached voids, otherwise solid-solid cut). Give pairs {a,b} or elementIds (all touching pairs, join/unjoin/switchOrder only). Each pair reports done / already / not_applicable with Revit's reason; one bad pair does not undo the others. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "editing",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "join / unjoin geometry, switchOrder (which element cuts the other in a join), cut / uncut (b cuts a: a family with unattached voids cuts with its voids, otherwise solid-solid cut).",
+            "type": "string",
+            "enum": [
+              "join",
+              "unjoin",
+              "switchOrder",
+              "cut",
+              "uncut"
+            ]
+          },
+          "pairs": {
+            "description": "Explicit pairs {a, b}.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "description": "First element. For cut/uncut: the element that IS CUT (e.g. the wall).",
+                  "type": "integer"
+                },
+                "b": {
+                  "description": "Second element. For cut/uncut: the CUTTING element (e.g. a void/solid family instance).",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "a",
+                "b"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "elementIds": {
+            "description": "Alternative to pairs: every pair among these elements whose bounding boxes touch (join/unjoin/switchOrder only; at most 2000 pairs).",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "list_category_parameters",
       "description": "List the parameters found on elements of a category (any language: OST_Doors, Doors, Portas), instance and/or type, so you can pick the exact reference before reading or writing. Each entry has name, builtIn, guid, storageType, dataType, group, readOnly, on (instance/type), how many sampled elements have it (seenOn) and a value (filledCount), and optionally distinct values. Inspects a sample (sampleSize) of the category. Read-only.",
       "kind": "read",
@@ -7078,6 +7762,59 @@
           "offset": {
             "description": "Families to skip, for paging (default 0).",
             "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_groups",
+      "description": "List model, detail and attached detail group types with their instance count and instances (id, level, origin in mm, member count), or, with groupId, the members of one group instance (paged). Use it before manage_groups or place_group_instance. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "Which group types: all (default), model, detail or attached (attached detail groups of model groups).",
+            "type": "string",
+            "enum": [
+              "all",
+              "model",
+              "detail",
+              "attached"
+            ],
+            "default": "all"
+          },
+          "nameContains": {
+            "description": "Only group types whose name contains this text (case-insensitive).",
+            "type": "string"
+          },
+          "groupId": {
+            "description": "A group instance id: lists that group's members (paged) instead of the group types.",
+            "type": "integer"
+          },
+          "includeInstances": {
+            "description": "List the instances of each group type (up to 50 per type). Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "description": "Page size, 1-1000 (default 100).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "offset": {
+            "description": "Items to skip (paging).",
+            "type": "integer",
+            "minimum": 0,
             "default": 0
           }
         },
@@ -7758,6 +8495,55 @@
       }
     },
     {
+      "name": "manage_groups",
+      "description": "Create a group from elements, ungroup instances, or add/remove members of a group instance. The Revit API has no in-place Edit Group: add/remove ungroups the instance and regroups it, keeping the type name only when it is the type's single instance; with other instances it refuses unless detach:true (this instance becomes a new type). Model and view-specific elements can't be mixed. Returns the group id and member ids. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "editing",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "create (new group from elementIds), ungroup (groupId, or several group ids in elementIds), addMembers / removeMembers (groupId + elementIds).",
+            "type": "string",
+            "enum": [
+              "create",
+              "ungroup",
+              "addMembers",
+              "removeMembers"
+            ]
+          },
+          "elementIds": {
+            "description": "create: elements to group. addMembers/removeMembers: elements to add/remove. ungroup: group instance ids (alternative to groupId).",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "groupId": {
+            "description": "The group instance for ungroup / addMembers / removeMembers.",
+            "type": "integer"
+          },
+          "name": {
+            "description": "create / addMembers / removeMembers: name of the (new) group type. Default: Revit's name for create, the old name otherwise.",
+            "type": "string"
+          },
+          "detach": {
+            "description": "addMembers/removeMembers when the group type has other instances: true turns THIS instance into a new group type (the others keep the old one). Default false refuses, because the Revit API can't edit a group type's members in place.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "manage_links",
       "description": "Reload or unload Revit links by link type id (from list_links). Reload re-reads the file from its saved path (fails with the reason if the file is missing); unload removes the link's geometry from the session until reloaded. Neither can be undone with Ctrl+Z: undo an unload with reload. dryRun lists what would happen. CAD links are listed by list_links but not managed here.",
       "kind": "write",
@@ -8323,6 +9109,90 @@
           },
           "continueOnError": {
             "description": "false (default): any failure rolls back the whole call. true: failed items are skipped and listed in failed[]. Ambiguous types never abort: they come back as placed:false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "place_group_instance",
+      "description": "Place instances of an existing model group type (named or by id; see list_groups) with its origin at a point in mm, optionally on a level + offset, rotated in degrees. Detail groups are refused (they belong to a view). Returns the new group ids, origin read back and member count. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Group instances to place.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "groupType": {
+                  "description": "Model group type by name or id (see list_groups). An ambiguous name fails with the candidates.",
+                  "type": "string"
+                },
+                "location": {
+                  "description": "Where the group's origin goes, in mm. z is used only when level is not given.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "z": {
+                      "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "level": {
+                  "description": "Level by name or id: the origin is placed at the level's elevation + offset.",
+                  "type": "string"
+                },
+                "offset": {
+                  "description": "Height above the level in mm (only with level). Default 0.",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 0
+                },
+                "rotation": {
+                  "description": "Rotation about the vertical axis through the origin, degrees counter-clockwise. Default 0.",
+                  "type": "number",
+                  "x-unit": "deg",
+                  "default": 0
+                }
+              },
+              "required": [
+                "groupType",
+                "location"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back the whole call. true: failed items are skipped and listed in failed[].",
             "type": "boolean",
             "default": false
           }
@@ -10025,6 +10895,39 @@
         },
         "required": [
           "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_true_north",
+      "description": "Set the angle between project north and true north of the active project location, in degrees (absolute, or relative to the current one). The model does not move; views oriented to True North, sun studies and shared coordinates change. Returns the previous and new angle (and the value the Project Base Point shows). Undo: Ctrl+Z, or call again with the previous angle.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "architecture",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "angle": {
+            "description": "Angle between project north and true north in degrees, as Revit stores it in the active project location (ProjectPosition.Angle; positive = counter-clockwise). Check the read-back 'angleToTrueNorthParameterDeg', which is what the Project Base Point shows.",
+            "type": "number",
+            "x-unit": "deg"
+          },
+          "mode": {
+            "description": "absolute (default): set the angle to this value. relative: add it to the current angle.",
+            "type": "string",
+            "enum": [
+              "absolute",
+              "relative"
+            ],
+            "default": "absolute"
+          }
+        },
+        "required": [
+          "angle"
         ],
         "additionalProperties": false
       }
