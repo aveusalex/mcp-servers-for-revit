@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "6e9014a013b96212899ed6feb661a9ea3028661200ececfb75dc73dc3e5897a1",
+  "capabilityHash": "af9ccaa5480f580da051f15ffbe20a5000b7de9a0e5e7cec20a7cb92ae1f533c",
   "tools": [
     {
       "name": "activate_view",
@@ -8179,6 +8179,41 @@
       }
     },
     {
+      "name": "get_undo_history",
+      "description": "Recent transactions of the target document as an approximate undo stack (newest first) and redo stack: transaction name (this MCP's are \"MCP: <tool>\"), byMcp, time and the element ids added/modified/deleted. Revit's API does not expose its real undo stack: this is rebuilt from the changes recorded since the add-in started (earlier edits, edits that changed no element and grouped commits make it approximate). Use it before undo_last/redo_last to see what the next Ctrl+Z would take back. Does not change the model.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "history",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "description": "Most entries listed per stack, 1-100 (default 20), newest first.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "onlyByMcp": {
+            "description": "List only this MCP's transactions (\"MCP: <tool>\"); the user's own edits are hidden but still counted. Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "maxIdsPerEntry": {
+            "description": "Element ids listed per entry and change kind, 0-200 (default 20). Counts are always complete.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 200,
+            "default": 20
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_view_image",
       "description": "Render one view or sheet, by id, to a PNG (or JPG) and return it as an image the assistant can look at (data.image), sized by pixels/fitDirection. Optionally keep the file in an allowed folder (saveTo). Schedules can't be rendered. Read-only: the model is not changed.",
       "kind": "read",
@@ -8692,6 +8727,41 @@
             "description": "Also count the model elements associated with each level (slower on big models; default false).",
             "type": "boolean",
             "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_line_styles",
+      "description": "List the line styles of the target document (subcategories of Lines, as in Manage > Object Styles > Annotation/Model lines): name, id, built-in or not, colour (#RRGGBB), projection line weight (1-16) and line pattern. includePatterns also lists the line patterns. Use the names in create_detail_lines (lineStyle) and manage_line_styles. Does not change the model.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "nameContains": {
+            "description": "Only styles whose name contains this text (case-insensitive).",
+            "type": "string"
+          },
+          "includePatterns": {
+            "description": "Also list the line patterns available for manage_line_styles (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "description": "Page size, 1-1000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Items to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
           }
         },
         "additionalProperties": false
@@ -9549,6 +9619,65 @@
         },
         "required": [
           "operation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "manage_line_styles",
+      "description": "Create line styles (new subcategories of Lines) and set the colour, projection line weight (1-16) and line pattern of new or existing ones (built-in styles like Thin Lines included). Operations run in order, all or nothing; an existing name on create fails instead of being silently reused. Renaming and deleting line styles are not offered (the API can't rename; deleting is a purge). Returns the styles read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "graphics",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operations": {
+            "description": "Operations applied in order, all or nothing (up to 100).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "description": "create (a new line style; fails if the name exists) or update (an existing one, built-in included).",
+                  "type": "string",
+                  "enum": [
+                    "create",
+                    "update"
+                  ]
+                },
+                "name": {
+                  "description": "Line style name (or id for update).",
+                  "type": "string"
+                },
+                "color": {
+                  "description": "Line colour, \"#RRGGBB\" or \"r,g,b\". create default: black.",
+                  "type": "string"
+                },
+                "weight": {
+                  "description": "Projection line weight number, 1-16 (pen of Manage > Line Weights; not mm). create default: 1.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 16
+                },
+                "pattern": {
+                  "description": "Line pattern name or id (\"Solid\" for continuous). create default: Solid.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "op",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "operations"
         ],
         "additionalProperties": false
       }
@@ -10540,6 +10669,38 @@
         "additionalProperties": false
       },
       "dryRunDefault": true
+    },
+    {
+      "name": "redo_last",
+      "description": "Ask Revit to redo the last undone step of the active document (posts Revit's own Redo command, like Ctrl+Y). By default only when get_undo_history shows that step is one of this MCP's transactions; pass expectTransaction to be sure. One step per call. The command runs AFTER the call returns, so the result says posted=true, not what was redone: verify with get_undo_history. Any new change clears Revit's redo list. Active document only; not in dryRun or batches.",
+      "kind": "ui",
+      "risk": "medium",
+      "toolset": "history",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "description": "Steps to undo/redo. Always 1: Revit runs a posted command only after this call returns and accepts one posted command at a time, so N steps take N calls (check get_undo_history between them).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1,
+            "default": 1
+          },
+          "expectTransaction": {
+            "description": "Refuse unless the next step (per get_undo_history) has this transaction name, e.g. \"MCP: create_walls\" (or just the tool name). Recommended.",
+            "type": "string"
+          },
+          "allowNonMcp": {
+            "description": "Allow it when the next known step is not one of this MCP's transactions (a manual edit of the user) or is unknown. Default false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
     },
     {
       "name": "rename_elements",
@@ -13056,6 +13217,135 @@
       }
     },
     {
+      "name": "style_schedule",
+      "description": "Format a schedule: text colour, background (shading) and bold of the title cells, the column headings and whole columns (field style); Revit's native striped rows (on/off, two colours, optionally on sheets); grid lines on sheets; and the text types (font/size) of title, headings and body. Individual data rows can't be coloured in Revit except by the stripes. Only what is passed changes; returns the styles read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Schedule name or id.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Style of the title cells (header section).",
+            "type": "object",
+            "properties": {
+              "textColor": {
+                "description": "Text colour, \"#RRGGBB\" or \"r,g,b\".",
+                "type": "string"
+              },
+              "backgroundColor": {
+                "description": "Background (shading) colour, \"#RRGGBB\" or \"r,g,b\".",
+                "type": "string"
+              },
+              "bold": {
+                "description": "Bold text on/off.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "headings": {
+            "description": "Style of the column heading cells (heading rows of the body, grouped headings included).",
+            "type": "object",
+            "properties": {
+              "textColor": {
+                "description": "Text colour, \"#RRGGBB\" or \"r,g,b\".",
+                "type": "string"
+              },
+              "backgroundColor": {
+                "description": "Background (shading) colour, \"#RRGGBB\" or \"r,g,b\".",
+                "type": "string"
+              },
+              "bold": {
+                "description": "Bold text on/off.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "columns": {
+            "description": "Style of whole columns, stored on each field (ScheduleField style): use it to shade/colour the data of some columns.",
+            "type": "object",
+            "properties": {
+              "textColor": {
+                "description": "Text colour, \"#RRGGBB\" or \"r,g,b\".",
+                "type": "string"
+              },
+              "backgroundColor": {
+                "description": "Background (shading) colour, \"#RRGGBB\" or \"r,g,b\".",
+                "type": "string"
+              },
+              "bold": {
+                "description": "Bold text on/off.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "columnFields": {
+            "description": "Restrict 'columns' to these fields (column heading or parameter name). Default: every visible column.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stripes": {
+            "description": "Alternating row colours (Revit's native striped rows).",
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "description": "Turn Revit's striped rows on or off.",
+                "type": "boolean"
+              },
+              "firstColor": {
+                "description": "Colour of the first row of the pattern (\"#RRGGBB\"). Default: keep Revit's.",
+                "type": "string"
+              },
+              "secondColor": {
+                "description": "Colour of the second row of the pattern (\"#RRGGBB\"). Default: keep Revit's.",
+                "type": "string"
+              },
+              "onSheets": {
+                "description": "Also show the stripes where the schedule is placed on sheets (Revit default: off).",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false
+          },
+          "gridLinesOnSheet": {
+            "description": "Show the grid lines when the schedule is on a sheet.",
+            "type": "boolean"
+          },
+          "titleTextType": {
+            "description": "Text type (TextNoteType name or id) for the title: font, size and the type's colour.",
+            "type": "string"
+          },
+          "headerTextType": {
+            "description": "Text type for the column headings.",
+            "type": "string"
+          },
+          "bodyTextType": {
+            "description": "Text type for the body (data rows).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "tag_all_in_view",
       "description": "Tag every element of the given categories (any language) visible in a view, skipping the ones already tagged (local and linked tags detected). Rooms, areas and spaces get their own tags. Optional tag type per category, leader, orientation, elementIds and a limit per call. Elements that cannot be tagged are reported, not fatal. Use dryRun to see the counts first. Returns counts per category and the created tag ids. Undo: Ctrl+Z.",
       "kind": "write",
@@ -13417,6 +13707,38 @@
           "elementIds",
           "operation"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "undo_last",
+      "description": "Ask Revit to undo the last step of the active document (posts Revit's own Undo command, like Ctrl+Z). By default only when get_undo_history shows that step is one of this MCP's transactions (\"MCP: <tool>\"); pass expectTransaction to be sure what is taken back. One step per call. The command runs AFTER the call returns, so the result says posted=true, not what was undone: verify with get_undo_history. Active document only; not in dryRun or batches. Reverse with redo_last.",
+      "kind": "ui",
+      "risk": "medium",
+      "toolset": "history",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "description": "Steps to undo/redo. Always 1: Revit runs a posted command only after this call returns and accepts one posted command at a time, so N steps take N calls (check get_undo_history between them).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1,
+            "default": 1
+          },
+          "expectTransaction": {
+            "description": "Refuse unless the next step (per get_undo_history) has this transaction name, e.g. \"MCP: create_walls\" (or just the tool name). Recommended.",
+            "type": "string"
+          },
+          "allowNonMcp": {
+            "description": "Allow it when the next known step is not one of this MCP's transactions (a manual edit of the user) or is unknown. Default false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
         "additionalProperties": false
       }
     },
