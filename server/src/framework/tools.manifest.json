@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "4dcded378df47c32906fa1342752287eee67c7759feb3aacf85e5f0749115900",
+  "capabilityHash": "61f42935dbca9212c87c73216e98234e6cf9f0ebffa805f170b77f245a053eb3",
   "tools": [
     {
       "name": "activate_view",
@@ -2362,6 +2362,133 @@
       }
     },
     {
+      "name": "create_detail_lines",
+      "description": "Draw detail lines in a 2D view (plan, section, elevation, detail, drafting, legend or sheet): lines, polylines (open or closed), rectangles, circles and arcs, with coordinates in the view plane in mm and an optional line style (by name, pt-BR or English). Not in 3D views. Returns the created ids per shape. Undo: Ctrl+Z or delete the ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View name or id (plan, section, elevation, detail, drafting, legend or sheet). Default: the active view.",
+            "type": "string"
+          },
+          "lineStyle": {
+            "description": "Line style (Lines subcategory) by name or id, e.g. \"<Thin Lines>\" / \"Linhas finas\" (brackets optional). Default: Revit's current line style.",
+            "type": "string"
+          },
+          "shapes": {
+            "description": "Shapes to draw, up to 500.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "description": "line (points[0]→points[1]), polyline (points, optionally closed), rectangle (points[0] and points[1] are opposite corners), circle (center, radius) or arc (center, radius, startAngle, endAngle, counter-clockwise).",
+                  "type": "string",
+                  "enum": [
+                    "line",
+                    "polyline",
+                    "rectangle",
+                    "circle",
+                    "arc"
+                  ]
+                },
+                "points": {
+                  "description": "Points in the view plane, mm (plans: model X/Y; sections/elevations: x along the view, y = elevation; sheets: paper mm).",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                        "type": "number",
+                        "x-unit": "mm"
+                      },
+                      "y": {
+                        "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                        "type": "number",
+                        "x-unit": "mm"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "closed": {
+                  "description": "polyline: also join the last point to the first.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "center": {
+                  "description": "circle/arc centre in the view plane, mm.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "radius": {
+                  "description": "circle/arc radius, mm (model mm; paper mm on sheets).",
+                  "type": "number",
+                  "minimum": 0.1,
+                  "maximum": 1000000,
+                  "x-unit": "mm"
+                },
+                "startAngle": {
+                  "description": "arc start angle, degrees from the view's right direction, counter-clockwise.",
+                  "type": "number",
+                  "x-unit": "deg"
+                },
+                "endAngle": {
+                  "description": "arc end angle, degrees (greater than startAngle, at most startAngle + 360).",
+                  "type": "number",
+                  "x-unit": "deg"
+                },
+                "lineStyle": {
+                  "description": "Line style for this shape (overrides the call's lineStyle).",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any invalid shape rolls back everything. true: invalid shapes are listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "shapes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "create_elevation_view",
       "description": "Place an elevation marker on a plan at a point (mm) and create 1-4 elevations by the direction the camera looks to (north = +Y, east = +X of the model). Each view's real direction is read back. Optional view type (e.g. interior elevation), scale, name pattern with {dir}, template, and crop to elements (fitElementIds + padding mm, e.g. a room). Undo: Ctrl+Z or delete the returned view ids.",
       "kind": "write",
@@ -2446,6 +2573,117 @@
         "required": [
           "plan",
           "point"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_filled_region",
+      "description": "Create filled regions (região preenchida) in a 2D view from closed outlines in the view plane (mm): first loop = boundary, further loops = holes; or a rectangle. Filled region type and boundary line style by name (pt-BR or English); unknown names fail instead of falling back. Self-intersecting or open outlines are refused. Returns ids and areas (m², model scale). Undo: Ctrl+Z or delete the ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View name or id (plan, section, elevation, detail, drafting, legend or sheet). Default: the active view.",
+            "type": "string"
+          },
+          "regionType": {
+            "description": "Filled region type by name or id (e.g. \"Sólido preto\"). Default: the document's default filled region type.",
+            "type": "string"
+          },
+          "lineStyle": {
+            "description": "Line style of the boundary by name or id (e.g. \"<Invisible lines>\" / \"<Linhas invisíveis>\"). Default: the type's.",
+            "type": "string"
+          },
+          "regions": {
+            "description": "Regions to create, up to 100.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "loops": {
+                  "description": "Outlines: the first is the boundary, the next ones are holes inside it. Give loops or rectangle.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "points": {
+                        "description": "Closed outline in the view plane, mm (the last point joins the first).",
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                              "type": "number",
+                              "x-unit": "mm"
+                            },
+                            "y": {
+                              "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                              "type": "number",
+                              "x-unit": "mm"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "points"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "rectangle": {
+                  "description": "Two opposite corners of a rectangular region in the view plane, mm (instead of loops).",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                        "type": "number",
+                        "x-unit": "mm"
+                      },
+                      "y": {
+                        "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                        "type": "number",
+                        "x-unit": "mm"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "regionType": {
+                  "description": "Filled region type for this region (overrides the call's regionType).",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any invalid region rolls back everything. true: invalid ones are listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "regions"
         ],
         "additionalProperties": false
       }
@@ -5172,6 +5410,65 @@
       }
     },
     {
+      "name": "edit_family",
+      "description": "open: take a loaded family (by instance/type id or family name), save a working copy to Documents\\RevitMCP\\families\\<family>.rfa and open it in Revit's family editor as the active document (edit it with manage_family_parameters targeting that document). load: load an open family document back into the project, replacing the existing family (optionally overwriting the types' parameter values), optionally saving and closing it. In-place and system families can't be edited. Changes the project on load: undo with Ctrl+Z in the project.",
+      "kind": "ui",
+      "risk": "medium",
+      "toolset": "families",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "open: open a loaded family in the family editor (from the project). load: load an open family document back into the project, replacing the family.",
+            "type": "string",
+            "enum": [
+              "open",
+              "load"
+            ]
+          },
+          "element": {
+            "description": "open: an instance or type id of the family (alternative to family).",
+            "type": "string"
+          },
+          "family": {
+            "description": "open: family name or id in the project. load from the project window: name of the open family document to load.",
+            "type": "string"
+          },
+          "project": {
+            "description": "load from the family editor: title of the open project to load into. Default: the only open project.",
+            "type": "string"
+          },
+          "overwriteParameterValues": {
+            "description": "load: also overwrite the parameter values of the existing types in the project with the family's (Revit's \"Overwrite the existing version and its parameter values\"). Default false: only the geometry/definition is replaced.",
+            "type": "boolean",
+            "default": false
+          },
+          "saveFamily": {
+            "description": "load: save the family file first (only when it lives in an allowed folder, e.g. the copy made by open).",
+            "type": "boolean",
+            "default": false
+          },
+          "closeFamily": {
+            "description": "load: close the family document afterwards without saving (not possible while it is the active window).",
+            "type": "boolean",
+            "default": false
+          },
+          "overwriteFile": {
+            "description": "open: overwrite an older working copy of the family in Documents\\RevitMCP\\families. Default true.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "execute_batch",
       "description": "Runs several tool calls against one document as a single atomic change: one Ctrl+Z undoes the whole batch. Every step is validated before anything runs; UI steps can't be mixed with model changes and only batchable tools are accepted (max 200 steps). Use \"$steps[i].path\" in args to pass a value from an earlier step (e.g. \"$steps[0].changes.created[0]\"). With dryRun the batch runs and is rolled back, returning what would change. The approval risk of a batch is the highest risk among its steps. Returns per-step results plus the combined change set.",
       "kind": "write",
@@ -7044,6 +7341,44 @@
       }
     },
     {
+      "name": "get_selection",
+      "description": "The elements currently selected in Revit (active document), paged (limit/offset, total, up to 1000 per page): id, uniqueId, category, family, type, name and level, or idsOnly; optional parameter values. Elements picked inside links are listed separately with the link instance id (Revit 2023+). Also says whether the document is a family and which view is active. Read only.",
+      "kind": "ui",
+      "risk": "none",
+      "toolset": "selection",
+      "batchable": false,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "idsOnly": {
+            "description": "Only ids (fast, for large selections). Default false: id, uniqueId, category, family, type, name, level.",
+            "type": "boolean",
+            "default": false
+          },
+          "parameters": {
+            "description": "Also return these parameters (names as shown in Revit, pt-BR or English) for each element, as display text.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "description": "Page size, 1-1000 (default 100).",
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "description": "Elements to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_session_changes",
       "description": "What changed in the target document during this session: net created / modified / deleted elements (id, UniqueId, name, category, transaction names, by MCP or by the user), the last created element still in the model, and lastSeq to ask again for only newer changes (sinceSeq). Tracking starts at the first call of this tool in the Revit session (earlier changes are unknown: the first call returns trackingStarted=true). Undo/redo is included. Filter by time, categories or onlyByMcp; paged. operation=reset starts a new baseline. Does not change the model.",
       "kind": "read",
@@ -7272,6 +7607,35 @@
         "required": [
           "viewId"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_view_info",
+      "description": "Extended information about a view (default: the active view): type, level, scale, detail level, discipline, display style, phase and phase filter, template (and whether it controls the view), crop region and annotation crop, scope box, view range (top/cut/bottom/depth: level + offset and absolute elevation, mm) and underlay for plans, section box/lock/perspective for 3D, sheet placement, title on sheet, dependent views and the applied filters (visibility/enabled). Read only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View name or id. Default: the active view (when the target is the active document).",
+            "type": "string"
+          },
+          "viewType": {
+            "description": "Revit view type to disambiguate a shared name (FloorPlan, CeilingPlan, Section...).",
+            "type": "string"
+          },
+          "includeFilters": {
+            "description": "Include the view filters applied to the view (or its template). Default true.",
+            "type": "boolean",
+            "default": true
+          }
+        },
         "additionalProperties": false
       }
     },
@@ -8073,6 +8437,56 @@
       }
     },
     {
+      "name": "list_view_filters",
+      "description": "List the view filters of the model: rule-based filters with their categories and rules (parameter, operator, value; numeric values in Revit internal units) and/or selection filters (saved selections) with their element count, plus the views and templates that apply each one (visible/enabled) and unused filters. Paged (limit/offset, total). Read only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "rule (default): rule-based filters (ParameterFilterElement). selection: selection filters / saved selections. all: both.",
+            "type": "string",
+            "enum": [
+              "rule",
+              "selection",
+              "all"
+            ],
+            "default": "rule"
+          },
+          "nameContains": {
+            "description": "Only filters whose name contains this text (case-insensitive).",
+            "type": "string"
+          },
+          "includeRules": {
+            "description": "Include categories and rules of rule filters. Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "includeUsage": {
+            "description": "Include the views and view templates where each filter is applied. Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "description": "Page size, 1-1000 (default 100).",
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "description": "Filters to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "list_view_templates",
       "description": "List view templates with id, name, view type, scale, detail level, how many views use them (includeUsage) and optionally the parameters each one controls (includeControlled). Filter by viewType (FloorPlan, Section, ThreeD...) and nameContains; paged with limit/offset. Read-only.",
       "kind": "read",
@@ -8245,6 +8659,111 @@
         "required": [
           "path"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "manage_family_parameters",
+      "description": "In a FAMILY document (the target must be an .rfa open in Revit, e.g. after edit_family): list the family parameters (type/instance, data type, group, formula, value per type) and add, set value, set/clear formula, rename or remove them, or add family types. Values use mm, m², m³ and degrees; formulas use the parameter names of the family. Operations run in order and all roll back if one fails. Save or load the family back into the project with edit_family operation load. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "families",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operations": {
+            "description": "Operations in order, up to 100. Empty or omitted: only list the parameters (call with dryRun:true to list without approval).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "description": "add (new family parameter, optional initial value), set (value), formula (set or clear with \"\"), rename, remove, add_type (new family type named name, copying the current type).",
+                  "type": "string",
+                  "enum": [
+                    "add",
+                    "set",
+                    "formula",
+                    "rename",
+                    "remove",
+                    "add_type"
+                  ]
+                },
+                "name": {
+                  "description": "Parameter name (or the new type's name for add_type).",
+                  "type": "string"
+                },
+                "newName": {
+                  "description": "rename: the new parameter name.",
+                  "type": "string"
+                },
+                "dataType": {
+                  "description": "add: data type. Default length.",
+                  "type": "string",
+                  "enum": [
+                    "length",
+                    "area",
+                    "volume",
+                    "angle",
+                    "number",
+                    "integer",
+                    "text",
+                    "yesno",
+                    "material",
+                    "url"
+                  ]
+                },
+                "group": {
+                  "description": "add: properties group (Cotas, Restrições, Materiais e acabamentos, Dados de identidade, Dados, Texto, Gráficos, Construção, Geral). Default from the data type.",
+                  "type": "string",
+                  "enum": [
+                    "dimensions",
+                    "constraints",
+                    "materials",
+                    "identity",
+                    "data",
+                    "text",
+                    "graphics",
+                    "construction",
+                    "general"
+                  ]
+                },
+                "isInstance": {
+                  "description": "add: instance parameter (true) or type parameter (false, default).",
+                  "type": "boolean",
+                  "default": false
+                },
+                "value": {
+                  "description": "add/set: the value. Lengths in mm, areas m², volumes m³, angles degrees; yesno true/false; material by name; text as is."
+                },
+                "formula": {
+                  "description": "formula: the formula text, using parameter names as they appear in the family (e.g. \"Largura / 2\"); \"\" clears it.",
+                  "type": "string"
+                },
+                "types": {
+                  "description": "add/set of a type parameter value: family type names to set. Default: the current type. [\"*\"] = every type.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "op",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "includeValues": {
+            "description": "List each parameter's value in every family type (up to 50 types). Default true.",
+            "type": "boolean",
+            "default": true
+          }
+        },
         "additionalProperties": false
       }
     },
@@ -8617,6 +9136,142 @@
         "required": [
           "schedule",
           "operations"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "modify_viewport",
+      "description": "Change viewports on sheets: move (x/y centre or dx/dy, paper mm), viewport type, rotation on the sheet (none/clockwise/counterclockwise), title on sheet (Título na folha), title label offset and extension-line length (paper mm). Each change is read back; the result lists before/after. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Viewports to change, up to 200.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "viewport": {
+                  "description": "Viewport id, or the name/id of a view placed on exactly one sheet.",
+                  "type": "string"
+                },
+                "x": {
+                  "description": "New X of the viewport box centre on the sheet, paper mm (give x and y together).",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "y": {
+                  "description": "New Y of the viewport box centre on the sheet, paper mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "dx": {
+                  "description": "Move by this much along X, paper mm (instead of x/y).",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "dy": {
+                  "description": "Move by this much along Y, paper mm (instead of x/y).",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "viewportType": {
+                  "description": "Viewport type name or id (e.g. a type without title, or \"Título com linha\").",
+                  "type": "string"
+                },
+                "rotation": {
+                  "description": "Rotation of the view on the sheet: none, clockwise or counterclockwise (90°).",
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "clockwise",
+                    "counterclockwise"
+                  ]
+                },
+                "titleOnSheet": {
+                  "description": "Title on sheet (\"Título na folha\") of the placed view; \"\" clears it so the view name is shown.",
+                  "type": "string"
+                },
+                "labelOffsetX": {
+                  "description": "Title label offset from the viewport box's lower-left corner, X in paper mm (Revit 2022+).",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "labelOffsetY": {
+                  "description": "Title label offset from the viewport box's lower-left corner, Y in paper mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "labelLineLength": {
+                  "description": "Length of the title's extension line, paper mm.",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "viewport"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back every change. true: failed ones are listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "open_view",
+      "description": "Open a view, schedule, legend or sheet (by name, id or sheet number) in Revit and make it active; optionally zoom to fit and close the other open views of the document. Active document only; does not change the model. Returns the active view and the open views. (activate_view does the same without sheet numbers/zoom and can close a single view.)",
+      "kind": "ui",
+      "risk": "none",
+      "toolset": "views",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View, schedule or legend name or id, or a sheet number/name (e.g. \"A-101\").",
+            "type": "string"
+          },
+          "viewType": {
+            "description": "Revit view type to disambiguate a shared name (FloorPlan, CeilingPlan, Section, ThreeD, DrawingSheet...).",
+            "type": "string"
+          },
+          "zoom": {
+            "description": "keep (default) or fit: zoom the opened view to fit its contents.",
+            "type": "string",
+            "enum": [
+              "keep",
+              "fit"
+            ],
+            "default": "keep"
+          },
+          "closeOthers": {
+            "description": "Close every other open view of this document after opening it (tidy the tabs).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "view"
         ],
         "additionalProperties": false
       }
