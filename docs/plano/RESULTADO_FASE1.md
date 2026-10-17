@@ -65,3 +65,34 @@ O catálogo ao vivo do MAPA (≈221 ferramentas registradas, 72 travadas por lic
 login na aba MAPA — o log do add-in mostra "WebSocket server held pending EULA consent". As capacidades interessantes
 inspiradas nele (envelope do ambiente, níveis AC/ES/FO, rodapé/tabica, tampo, vistas por ambiente, trocar
 acabamento) estão implementadas e testadas acima, com código próprio.
+
+## Rodadas de teste 2 e 3 + funções do MAPA da Fase 2 (17/10/2026, tarde)
+
+**Agora: 161 ferramentas no framework** (+11 de edição/grupos/geometria, +12 de marcenaria e documentação).
+
+Funções inspiradas no MAPA, testadas ao vivo:
+- **Marcenaria** — `create_millwork_module` (balcão de pia 2 portas, aéreo, gaveteiro 3 gavetas; peças de MDF como
+  DirectShapes de gabinete, agrupadas, com material por peça), `configure_millwork_module` (redimensiona/reconstrói
+  no mesmo lugar, sem deixar tipo de grupo órfão), `millwork_cutting_list` (lista de corte por material, com chapas).
+- Grupos (`manage_groups`, `list_groups`, `place_group_instance`), `array_elements`, `create_similar`,
+  `align_distribute_elements`, `join_cut_geometry`, `edit_element_curve` (dividir parede: ok sem recriar),
+  `create_reference_plane`, `set_true_north`, `delete_elements` (prévia lista dependentes: parede → porta),
+  `modify_viewport`, `open_view`, `get_view_info`, `list_view_filters`, `get_selection`, linhas de detalhe
+  (retângulo, círculo), região preenchida, parâmetros de família, editar família.
+
+Também testados ao vivo nesta rodada (além da lista acima da Fase 1): exportação DWG e IFC, CSV de dados e de
+parâmetros + reimportação (prévia), imagem com `saveTo` de arquivo, seleção/vista ativa/mostrar elementos (UI),
+seleções salvas, faixa de vista, recorte, propriedades, duplicar vista, visibilidade de categoria, aplicar template,
+filtro de vista (criar/aplicar), corte, elevações, callout, etiqueta, parâmetros do carimbo, revisão atribuída à
+folha, duplicar e renumerar folhas (troca A↔B), fase, base/topo de parede, edição composta, copiar parâmetros,
+atualização em massa, troca de tipo em massa, renomear tipos, renumerar portas/janelas, material novo e gráficos,
+rodapé por perímetro (wall sweep), linhas separadoras, níveis, família hospedada, baseline de avisos, salvar (prévia).
+
+Bugs desta rodada, corrigidos e revalidados (17–22): origem interna contada como conteúdo do ambiente; `saveTo` de
+arquivo virava pasta; revisão "não atribuída" (lista do Revit desatualizada antes de regenerar); cor por parâmetro
+de tipo vazia; ids texto × número entre ferramentas (o servidor agora aceita os dois); tipo de grupo órfão ao
+reconfigurar marcenaria.
+
+As ferramentas de risco médio foram exercitadas em modo prévia (o código roda inteiro no Revit e a transação é
+desfeita no fim); aplicá-las de verdade exige aprovação humana na janela do Revit, por desenho — a janela e o fluxo
+de aprovação foram testados com aprovação real na Fase 0.
