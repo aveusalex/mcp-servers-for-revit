@@ -345,11 +345,15 @@ namespace RevitMCPCommandSet.Tools.Architecture
             var topId = w.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE)?.AsElementId();
             var top = topId != null && topId != ElementId.InvalidElementId ? doc.GetElement(topId) as Level : null;
             var keyRef = w.get_Parameter(BuiltInParameter.WALL_KEY_REF_PARAM)?.AsInteger() ?? 0;
+            // Revit reports the centerline as the location curve; also give the line the caller asked for.
+            var toRef = w.Orientation.Normalize() * ReferenceOffsetFromCenter(w, (WallLocationLine)keyRef);
             return new
             {
                 id = w.Id.GetValue(),
                 start = ArchGeometry.ToWire2(curve.GetEndPoint(0)),
                 end = ArchGeometry.ToWire2(curve.GetEndPoint(1)),
+                referenceStart = ArchGeometry.ToWire2(curve.GetEndPoint(0) + toRef),
+                referenceEnd = ArchGeometry.ToWire2(curve.GetEndPoint(1) + toRef),
                 lengthMm = ArchGeometry.Mm(curve.Length),
                 widthMm = ArchGeometry.Mm(w.Width),
                 locationLine = ((WallLocationLine)keyRef).ToString(),

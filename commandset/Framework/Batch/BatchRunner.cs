@@ -18,6 +18,7 @@ namespace RevitMCPCommandSet.Framework
         {
             var plan = BatchPolicy.Validate(steps, name => ToolRegistry.TryGet(name, out var d) ? d.Metadata : null);
             var doc = ctx.Doc;
+            long logMark = RevitMCPCommandSet.Tools.Query.Support.SessionChangeLog.CurrentSeq;
 
             // Check the arguments of every step that doesn't depend on an earlier result, before anything runs.
             foreach (var step in plan.Steps.Where(s => !s.HasReferences))
@@ -111,7 +112,12 @@ namespace RevitMCPCommandSet.Framework
                 if (group != null)
                 {
                     if (keep) group.Assimilate();
-                    else group.RollBack();
+                    else
+                    {
+                        group.RollBack();
+                        // No DocumentChanged for a rolled-back group: forget its commits in the change log.
+                        RevitMCPCommandSet.Tools.Query.Support.SessionChangeLog.DiscardSince(doc, logMark);
+                    }
                 }
 
                 var data = new JObject
@@ -153,7 +159,11 @@ namespace RevitMCPCommandSet.Framework
             {
                 if (group != null)
                 {
-                    if (group.HasStarted() && !group.HasEnded()) group.RollBack();
+                    if (group.HasStarted() && !group.HasEnded())
+                    {
+                        group.RollBack();
+                        RevitMCPCommandSet.Tools.Query.Support.SessionChangeLog.DiscardSince(doc, logMark);
+                    }
                     group.Dispose();
                 }
             }

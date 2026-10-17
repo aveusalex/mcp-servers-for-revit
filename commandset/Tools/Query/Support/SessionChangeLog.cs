@@ -106,6 +106,40 @@ namespace RevitMCPCommandSet.Tools.Query.Support
             }
         }
 
+        /// <summary>Current sequence number; pass it to <see cref="DiscardSince"/> after rolling a preview back.</summary>
+        public static long CurrentSeq
+        {
+            get { lock (Gate) return _seq; }
+        }
+
+        /// <summary>
+        /// Forget the events recorded after <paramref name="seq"/> for this document. Revit raises no
+        /// DocumentChanged when a TransactionGroup is rolled back, so a dryRun preview's commits would otherwise
+        /// look like real changes (live test: they showed up in get_undo_history and get_session_changes).
+        /// </summary>
+        public static void DiscardSince(Document doc, long seq)
+        {
+            try
+            {
+                var log = For(doc, false);
+                if (log == null) return;
+                lock (Gate)
+                {
+                    for (int i = log.Events.Count - 1; i >= 0; i--)
+                    {
+                        var ev = log.Events[i];
+                        if (ev.Seq <= seq) break;
+                        log.IdCount -= ev.Added.Length + ev.Modified.Length + ev.Deleted.Length;
+                        log.Events.RemoveAt(i);
+                    }
+                }
+            }
+            catch
+            {
+                // diagnostics only
+            }
+        }
+
         private static void OnChanged(object sender, DocumentChangedEventArgs e)
         {
             try

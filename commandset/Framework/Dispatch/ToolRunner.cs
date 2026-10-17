@@ -94,6 +94,7 @@ namespace RevitMCPCommandSet.Framework
 
             var tracked = new ChangeAccumulator();
             TransactionGroup preview = null;
+            long logMark = RevitMCPCommandSet.Tools.Query.Support.SessionChangeLog.CurrentSeq;
             try
             {
                 object data;
@@ -144,6 +145,8 @@ namespace RevitMCPCommandSet.Framework
                 {
                     if (preview.HasStarted() && !preview.HasEnded()) preview.RollBack();
                     preview.Dispose();
+                    // Revit raises no DocumentChanged for a rolled-back group: forget the preview's commits.
+                    RevitMCPCommandSet.Tools.Query.Support.SessionChangeLog.DiscardSince(doc, logMark);
                 }
             }
         }
