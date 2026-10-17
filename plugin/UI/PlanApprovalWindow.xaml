@@ -1,7 +1,7 @@
 <Window x:Class="revit_mcp_plugin.UI.PlanApprovalWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MCP - change plan waiting for approval"
+        Title="MCP - plano de alteração aguardando aprovação"
         Width="820" Height="560" MinWidth="560" MinHeight="380"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="True" Topmost="False">
     <Grid Margin="12">
@@ -16,7 +16,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-            <TextBlock Text="An AI assistant asks to change this model." FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="Um assistente de IA pede para alterar este modelo." FontSize="15" FontWeight="SemiBold"/>
             <TextBlock x:Name="HeaderText" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="#444"/>
         </StackPanel>
 
@@ -24,7 +24,7 @@
             <TextBlock x:Name="SummaryText" TextWrapping="Wrap" FontSize="13"/>
         </Border>
 
-        <Expander Grid.Row="2" x:Name="ReasoningExpander" Header="Reasoning given by the assistant" Margin="0,6,0,0">
+        <Expander Grid.Row="2" x:Name="ReasoningExpander" Header="Justificativa do assistente" Margin="0,6,0,0">
             <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
                 <TextBlock x:Name="ReasoningText" TextWrapping="Wrap" Margin="4"/>
             </ScrollViewer>
@@ -34,10 +34,10 @@
                   HeadersVisibility="Column" CanUserAddRows="False" SelectionMode="Extended">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="35"/>
-                <DataGridTextColumn Header="Command" Binding="{Binding Tool}" Width="170"/>
-                <DataGridTextColumn Header="Risk" Binding="{Binding Risk}" Width="65"/>
-                <DataGridTextColumn Header="Elements" Binding="{Binding ElementCount}" Width="70"/>
-                <DataGridTextColumn Header="Arguments" Binding="{Binding Args}" Width="*">
+                <DataGridTextColumn Header="Comando" Binding="{Binding Tool}" Width="170"/>
+                <DataGridTextColumn Header="Risco" Binding="{Binding Risk}" Width="65"/>
+                <DataGridTextColumn Header="Elementos" Binding="{Binding ElementCount}" Width="70"/>
+                <DataGridTextColumn Header="Argumentos" Binding="{Binding Args}" Width="*">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="TextWrapping" Value="Wrap"/>
@@ -48,18 +48,18 @@
         </DataGrid>
 
         <DockPanel Grid.Row="4" Margin="0,8,0,0">
-            <TextBlock Text="Note (optional): " VerticalAlignment="Center" DockPanel.Dock="Left"/>
+            <TextBlock Text="Observação (opcional): " VerticalAlignment="Center" DockPanel.Dock="Left"/>
             <TextBox x:Name="NoteBox" MaxLength="2000"/>
         </DockPanel>
 
         <TextBlock Grid.Row="5" x:Name="StatusText" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#a33"/>
 
         <DockPanel Grid.Row="6" Margin="0,8,0,0" LastChildFill="False">
-            <Button x:Name="HighlightButton" Content="Highlight in model" Padding="12,4" DockPanel.Dock="Left"
-                    Click="Highlight_Click" ToolTip="Select and zoom to the affected elements (the document must be the active one)"/>
-            <Button x:Name="ApproveButton" Content="Approve" Padding="18,4" Margin="8,0,0,0" DockPanel.Dock="Right"
+            <Button x:Name="HighlightButton" Content="Destacar no modelo" Padding="12,4" DockPanel.Dock="Left"
+                    Click="Highlight_Click" ToolTip="Seleciona e aproxima os elementos afetados (o documento precisa ser o ativo)"/>
+            <Button x:Name="ApproveButton" Content="Aprovar" Padding="18,4" Margin="8,0,0,0" DockPanel.Dock="Right"
                     Click="Approve_Click" FontWeight="SemiBold"/>
-            <Button x:Name="RejectButton" Content="Reject" Padding="18,4" DockPanel.Dock="Right"
+            <Button x:Name="RejectButton" Content="Rejeitar" Padding="18,4" DockPanel.Dock="Right"
                     Click="Reject_Click"/>
         </DockPanel>
     </Grid>

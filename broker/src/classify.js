@@ -210,6 +210,14 @@ export function extractElementIds(args, limit = 500) {
       if (Number.isInteger(value) && value > 0) found.add(value);
       return;
     }
+    // Framework tools take ids as strings ("220128"); UniqueIds and "link:element" refs are not plain ids.
+    if (typeof value === "string" && idKey) {
+      if (/^\d{1,18}$/.test(value)) {
+        const n = Number(value);
+        if (Number.isSafeInteger(n) && n > 0) found.add(n);
+      }
+      return;
+    }
     if (Array.isArray(value)) {
       for (const v of value) visit(v, idKey ? key : undefined);
       return;

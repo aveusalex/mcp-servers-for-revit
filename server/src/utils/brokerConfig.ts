@@ -8,7 +8,8 @@ import fs from "fs";
  * port, same token file — otherwise the handshake fails.
  */
 export const BROKER_HOST = "127.0.0.1";
-export const BROKER_PORT = 8090;
+// Override only for tests; must match the broker (see broker/src/config.js).
+export const BROKER_PORT = Number(process.env.REVIT_MCP_BROKER_PORT) || 8090;
 
 export function stateDir(): string {
   const appData =

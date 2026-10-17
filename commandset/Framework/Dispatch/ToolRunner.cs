@@ -106,6 +106,7 @@ namespace RevitMCPCommandSet.Framework
                     }
 
                     using (var tx = new Transaction(doc, $"MCP: {tool.Name}"))
+                    using (var late = LateFailureLog.Watch(doc))
                     {
                         var failures = SafeFailuresPreprocessor.Attach(tx, ctx.Warnings);
                         tx.Start();
@@ -122,7 +123,11 @@ namespace RevitMCPCommandSet.Framework
                         var status = tx.HasEnded() ? tx.GetStatus() : tx.Commit();
                         if (status != TransactionStatus.Committed)
                         {
-                            var why = failures.Errors.Count > 0 ? string.Join(" | ", failures.Errors) : $"status {status}";
+                            // Some failures reach FailuresProcessing without passing through the preprocessor.
+                            var errors = failures.Errors.Concat(late.Messages).Distinct().ToList();
+                            foreach (var m in late.Messages.Where(m => !failures.Errors.Contains(m)))
+                                ctx.Warnings.Add(new ToolWarning(m, null, "error"));
+                            var why = errors.Count > 0 ? string.Join(" | ", errors) : $"status {status} (Revit gave no reason)";
                             throw new ToolException(ToolErrorCodes.TransactionRolledBack,
                                 $"Revit rejected the change and rolled it back: {why}",
                                 "Nothing was changed. Fix the cause reported by Revit (see warnings) and try again.");

@@ -64,7 +64,7 @@ namespace revit_mcp_plugin.Core
                     window.Closed += (s, e) => _windows.Remove(planId);
                     _windows[planId] = window;
                     window.Show(); // non-modal: Revit stays usable while the person reviews
-                    window.Activate();
+                    BringToAttention(window);
                 }
                 catch (Exception ex)
                 {
@@ -93,11 +93,11 @@ namespace revit_mcp_plugin.Core
                 }
                 else if (code == "PLAN_NOT_PENDING" || code == "PLAN_NOT_FOUND")
                 {
-                    window.SetStatus($"This plan can no longer be decided: {error}");
+                    window.SetStatus($"Este plano não pode mais ser decidido: {error}");
                 }
                 else
                 {
-                    window.DecisionFailed($"The broker refused the decision ({code}): {error}");
+                    window.DecisionFailed($"O broker recusou a decisão ({code}): {error}");
                 }
             }));
         }
@@ -107,7 +107,7 @@ namespace revit_mcp_plugin.Core
             var send = _sendDecision;
             if (send == null)
             {
-                window.DecisionFailed("Not connected to the MCP broker.");
+                window.DecisionFailed("Sem conexão com o broker do MCP.");
                 return;
             }
             Task.Run(async () =>
@@ -124,23 +124,59 @@ namespace revit_mcp_plugin.Core
         }
 
         /// <summary>Select and zoom to the affected elements, in a Revit API context.</summary>
+        /// <summary>
+        /// A new plan must not hide behind other windows: raise it above everything once (without staying
+        /// topmost) and flash it in the taskbar until the person looks at it.
+        /// </summary>
+        private static void BringToAttention(PlanApprovalWindow window)
+        {
+            window.Topmost = true;
+            window.Activate();
+            window.Topmost = false;
+
+            var handle = new WindowInteropHelper(window).Handle;
+            if (handle == IntPtr.Zero) return;
+            var info = new FLASHWINFO
+            {
+                cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf(typeof(FLASHWINFO)),
+                hwnd = handle,
+                dwFlags = 0x3 | 0xC, // FLASHW_ALL | FLASHW_TIMERNOFG: flash until the window comes to the foreground
+                uCount = uint.MaxValue,
+                dwTimeout = 0,
+            };
+            FlashWindowEx(ref info);
+        }
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct FLASHWINFO
+        {
+            public uint cbSize;
+            public IntPtr hwnd;
+            public uint dwFlags;
+            public uint uCount;
+            public uint dwTimeout;
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool FlashWindowEx(ref FLASHWINFO info);
+
         private void Highlight(PlanApprovalWindow window, IList<long> ids)
         {
             string docId = window.DocId;
             bool queued = UiActionQueue.Instance.Post(app =>
             {
                 string message = HighlightInRevit(app, docId, ids);
-                _dispatcher.BeginInvoke(new Action(() => window.SetStatus(message, message.StartsWith("Could not"))));
+                _dispatcher.BeginInvoke(new Action(() => window.SetStatus(message, message.StartsWith("Não foi possível"))));
             });
-            if (!queued) window.SetStatus("Could not highlight: the add-in is still loading; try again in a moment.");
+            if (!queued) window.SetStatus("Não foi possível destacar: o add-in ainda está carregando; tente de novo em instantes.");
         }
 
         private static string HighlightInRevit(UIApplication app, string docId, IList<long> ids)
         {
             var uidoc = app?.ActiveUIDocument;
-            if (uidoc == null) return "Could not highlight: no active document.";
+            if (uidoc == null) return "Não foi possível destacar: nenhum documento ativo.";
             if (DocumentSessionManager.DocIdOf(uidoc.Document) != docId)
-                return "Could not highlight: this plan targets another document. Activate that project's window first.";
+                return "Não foi possível destacar: este plano é para outro documento. Ative a janela desse projeto primeiro.";
 
             var doc = uidoc.Document;
             var elementIds = new List<ElementId>();
@@ -149,13 +185,13 @@ namespace revit_mcp_plugin.Core
                 var id = ToElementId(raw);
                 if (doc.GetElement(id) != null) elementIds.Add(id);
             }
-            if (elementIds.Count == 0) return "Could not highlight: none of the affected elements exist in this document.";
+            if (elementIds.Count == 0) return "Não foi possível destacar: nenhum dos elementos afetados existe neste documento.";
 
             uidoc.Selection.SetElementIds(elementIds);
             try { uidoc.ShowElements(elementIds); }
             catch { /* not visible in the active view: the selection still shows them in other views */ }
             int missing = ids.Count - elementIds.Count;
-            return $"Selected {elementIds.Count} element(s)" + (missing > 0 ? $" ({missing} not found)." : ".");
+            return $"{elementIds.Count} elemento(s) selecionado(s)" + (missing > 0 ? $" ({missing} não encontrado(s))." : ".");
         }
 
         private static ElementId ToElementId(long value)

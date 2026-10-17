@@ -9,6 +9,9 @@ import { WebSocket } from "ws";
 // reads it. Both the broker and the server derive the token from APPDATA.
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "revit-mcp-routing-"));
 process.env.APPDATA = TMP;
+// Never collide with a real broker on 8090: use a free port for both sides.
+process.env.REVIT_MCP_BROKER_PORT = String(18090 + Math.floor(Math.random() * 1000));
+const PORT = Number(process.env.REVIT_MCP_BROKER_PORT);
 
 // Broker source is a sibling of server/.
 const { Broker } = await import("../../broker/src/broker.js");
@@ -51,9 +54,9 @@ function fakePlugin(port, token, documents) {
 }
 
 before(async () => {
-  // Port 8090 is what BrokerConnection dials.
+  // PORT is what BrokerConnection dials (REVIT_MCP_BROKER_PORT).
   // ask_first is the production default; a short soft timeout exercises jobs.
-  broker = new Broker({ port: 8090, audit: new NullAudit(), approvalMode: "ask_first", softTimeoutMs: 300 });
+  broker = new Broker({ port: Number(process.env.REVIT_MCP_BROKER_PORT), audit: new NullAudit(), approvalMode: "ask_first", softTimeoutMs: 300 });
   await broker.start();
 });
 
@@ -64,7 +67,7 @@ after(async () => {
 });
 
 test("single open document resolves with no explicit target (retrocompat)", async () => {
-  plugin = fakePlugin(8090, broker.token, [
+  plugin = fakePlugin(PORT, broker.token, [
     { docId: "solo", title: "Only Project", isActive: true },
   ]);
   await waitFor(() => brokerClient.listDocuments().then((d) => d.length === 1));
@@ -76,7 +79,7 @@ test("single open document resolves with no explicit target (retrocompat)", asyn
 });
 
 test("explicit document argument wins", async () => {
-  plugin = fakePlugin(8090, broker.token, [
+  plugin = fakePlugin(PORT, broker.token, [
     { docId: "A", title: "Torre A", isActive: true },
     { docId: "B", title: "Torre B", isActive: false },
   ]);
@@ -91,7 +94,7 @@ test("explicit document argument wins", async () => {
 });
 
 test("two open documents with no target throws AMBIGUOUS_TARGET", async () => {
-  plugin = fakePlugin(8090, broker.token, [
+  plugin = fakePlugin(PORT, broker.token, [
     { docId: "A", title: "Torre A", isActive: true },
     { docId: "B", title: "Torre B", isActive: false },
   ]);
@@ -106,7 +109,7 @@ test("two open documents with no target throws AMBIGUOUS_TARGET", async () => {
 });
 
 test("fixed target applies when no explicit document is given", async () => {
-  plugin = fakePlugin(8090, broker.token, [
+  plugin = fakePlugin(PORT, broker.token, [
     { docId: "A", title: "Torre A", isActive: true },
     { docId: "B", title: "Torre B", isActive: false },
   ]);
@@ -121,7 +124,7 @@ test("fixed target applies when no explicit document is given", async () => {
 });
 
 test("list_revit_links routes a read-only query to its selected host document", async () => {
-  plugin = fakePlugin(8090, broker.token, [
+  plugin = fakePlugin(PORT, broker.token, [
     { docId: "host", title: "Condominio", isActive: true },
     { docId: "other", title: "Outro Projeto", isActive: false },
   ]);
@@ -190,7 +193,7 @@ const textOf = (r) => r.content.find((c) => c.type === "text").text;
 const noCtx = { dryRun: false, warn() {}, send: async () => ({ ok: true }) };
 
 test("legacy tool: medium risk is gated and the message carries the hint and the exact step", async () => {
-  plugin = approvingPlugin(8090, broker.token, [{ docId: "solo", title: "Only", isActive: true }]);
+  plugin = approvingPlugin(PORT, broker.token, [{ docId: "solo", title: "Only", isActive: true }]);
   await waitFor(() => brokerClient.listDocuments().then((d) => d.length === 1));
 
   let handler;
@@ -216,7 +219,7 @@ test("legacy tool: medium risk is gated and the message carries the hint and the
 });
 
 test("plan tools: propose -> wait (approved in Revit) -> execute -> get_plan", async () => {
-  plugin = approvingPlugin(8090, broker.token, [{ docId: "solo", title: "Only", isActive: true }]);
+  plugin = approvingPlugin(PORT, broker.token, [{ docId: "solo", title: "Only", isActive: true }]);
   await waitFor(() => brokerClient.listDocuments().then((d) => d.length === 1));
 
   const proposed = await approval.proposeChangePlan.run(
@@ -253,7 +256,7 @@ test("plan tools: propose -> wait (approved in Revit) -> execute -> get_plan", a
 });
 
 test("a rejected plan cannot run", async () => {
-  plugin = approvingPlugin(8090, broker.token, [{ docId: "solo", title: "Only", isActive: true }], { decision: "rejected" });
+  plugin = approvingPlugin(PORT, broker.token, [{ docId: "solo", title: "Only", isActive: true }], { decision: "rejected" });
   await waitFor(() => brokerClient.listDocuments().then((d) => d.length === 1));
   const p = await approval.proposeChangePlan.run(
     { steps: [{ tool: "delete_element", args: { elementIds: [8] } }], summary: "Delete 8" },
@@ -268,7 +271,7 @@ test("a rejected plan cannot run", async () => {
 });
 
 test("slow command: running result tells the AI to poll; get_job_result collects it", async () => {
-  plugin = approvingPlugin(8090, broker.token, [{ docId: "solo", title: "Only", isActive: true }], {
+  plugin = approvingPlugin(PORT, broker.token, [{ docId: "solo", title: "Only", isActive: true }], {
     slow: new Set(["analyze_model_statistics"]),
   });
   await waitFor(() => brokerClient.listDocuments().then((d) => d.length === 1));

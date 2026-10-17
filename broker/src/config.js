@@ -13,7 +13,9 @@ import crypto from "crypto";
  * which the autostart logic explicitly prevents.
  */
 export const HOST = "127.0.0.1";
-export const PORT = 8090;
+// REVIT_MCP_BROKER_PORT exists for tests (so they never collide with a running broker). The plugin always
+// dials 8090, so do not change it in production.
+export const PORT = Number(process.env.REVIT_MCP_BROKER_PORT) || 8090;
 
 /** Heartbeat cadence expected from plugins, in milliseconds. */
 export const HEARTBEAT_INTERVAL_MS = 5000;

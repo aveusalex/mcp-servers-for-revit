@@ -51,12 +51,12 @@ namespace revit_mcp_plugin.UI
             _risk = ((string)plan["risk"] ?? "medium").ToLowerInvariant();
 
             var docTitle = Clean((string)plan["docTitle"] ?? DocId, 200);
-            var expires = (string)plan["expiresAt"];
+            var expires = plan["expiresAt"];
             var steps = plan["steps"] as JArray ?? new JArray();
             HeaderText.Text =
-                $"Document: {docTitle}   |   Risk: {_risk.ToUpperInvariant()}   |   {steps.Count} step(s)" +
-                (string.IsNullOrEmpty(expires) ? "" : $"   |   Expires: {FormatTime(expires)}") +
-                $"\nPlan {PlanId} (hash {Short(PlanHash)}). Nothing changes until you approve; a batched plan is undone with one Ctrl+Z.";
+                $"Documento: {docTitle}   |   Risco: {RiskLabel(_risk)}   |   {steps.Count} passo(s)" +
+                (expires == null ? "" : $"   |   Expira às {FormatTime(expires)}") +
+                $"\nPlano {PlanId} (hash {Short(PlanHash)}). Nada muda até você aprovar; um plano em lote é desfeito com um único Ctrl+Z.";
             SummaryText.Text = Clean((string)plan["summary"], 4000);
 
             var reasoning = Clean((string)plan["reasoning"], 8000);
@@ -73,16 +73,44 @@ namespace revit_mcp_plugin.UI
                 {
                     Index = (int?)s["index"] ?? rows.Count,
                     Tool = Clean((string)s["tool"], 100),
-                    Risk = (string)s["risk"],
+                    Risk = RiskLabel((string)s["risk"]),
                     ElementCount = ids.Count,
                     Args = Clean(s["args"]?.ToString(Formatting.None) ?? "{}", 600),
                 });
             }
             StepsGrid.ItemsSource = rows;
             HighlightButton.IsEnabled = _affectedIds.Count > 0;
-            if (_affectedIds.Count == 0) HighlightButton.ToolTip = "This plan does not name specific element ids.";
+            ExpireAt(expires);
+            if (_affectedIds.Count == 0) HighlightButton.ToolTip = "Este plano não indica elementos específicos.";
 
-            Title = $"MCP - approve change to {docTitle}?";
+            Title = $"MCP - aprovar alteração em {docTitle}?";
+        }
+
+        /// <summary>
+        /// The broker refuses decisions on an expired plan; disable the buttons at that moment so a stale
+        /// window can't be approved by mistake.
+        /// </summary>
+        private void ExpireAt(JToken expires)
+        {
+            if (expires == null) return;
+            DateTime at;
+            if (expires.Type == JTokenType.Date) at = (DateTime)expires;
+            else if (!DateTime.TryParse((string)expires, System.Globalization.CultureInfo.InvariantCulture,
+                         System.Globalization.DateTimeStyles.RoundtripKind, out at)) return;
+
+            var remaining = at.ToUniversalTime() - DateTime.UtcNow;
+            if (remaining <= TimeSpan.Zero) { MarkExpired(); return; }
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = remaining };
+            timer.Tick += (s, e) => { timer.Stop(); MarkExpired(); };
+            timer.Start();
+            Closed += (s, e) => timer.Stop();
+        }
+
+        private void MarkExpired()
+        {
+            if (_decisionSent) return;
+            ApproveButton.IsEnabled = RejectButton.IsEnabled = false;
+            SetStatus("Este plano expirou e não pode mais ser aprovado. Feche esta janela; a IA pode propor um novo.");
         }
 
         /// <summary>Show a status line (errors from the broker, highlight problems...).</summary>
@@ -113,8 +141,8 @@ namespace revit_mcp_plugin.UI
             if (_risk == "high")
             {
                 var answer = MessageBox.Show(this,
-                    "This plan is HIGH risk (for example it runs code or makes irreversible changes).\n\nApprove it?",
-                    "Confirm high-risk change", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+                    "Este plano é de risco ALTO (por exemplo, executa código ou faz alterações irreversíveis).\n\nAprovar mesmo assim?",
+                    "Confirmar alteração de risco alto", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
                 if (answer != MessageBoxResult.Yes) return;
             }
             Send("approved");
@@ -127,7 +155,7 @@ namespace revit_mcp_plugin.UI
             if (_decisionSent) return;
             _decisionSent = true;
             ApproveButton.IsEnabled = RejectButton.IsEnabled = false;
-            SetStatus(decision == "approved" ? "Sending approval..." : "Sending rejection...", false);
+            SetStatus(decision == "approved" ? "Enviando aprovação..." : "Enviando rejeição...", false);
             _onDecision?.Invoke(decision, NoteBox.Text);
         }
 
@@ -152,11 +180,26 @@ namespace revit_mcp_plugin.UI
 
         private static string Short(string hash) => string.IsNullOrEmpty(hash) ? "?" : hash.Substring(0, Math.Min(12, hash.Length));
 
-        private static string FormatTime(string iso)
+        private static string FormatTime(JToken value)
         {
-            return DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var t)
+            // Newtonsoft may already have parsed the ISO string into a Date token.
+            if (value.Type == JTokenType.Date) return ((DateTime)value).ToLocalTime().ToString("HH:mm");
+            var iso = (string)value;
+            return DateTime.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var t)
                 ? t.ToLocalTime().ToString("HH:mm")
                 : iso;
+        }
+
+        private static string RiskLabel(string risk)
+        {
+            switch ((risk ?? "").ToLowerInvariant())
+            {
+                case "high": return "ALTO";
+                case "medium": return "MÉDIO";
+                case "low": return "BAIXO";
+                case "none": return "NENHUM";
+                default: return risk ?? "?";
+            }
         }
     }
 }

@@ -127,6 +127,19 @@ export const waitForPlanDecision = defineServerTool<{ planId: string; waitSecond
   },
   async run(args) {
     const plan = await broker.planWait(args.planId, args.waitSeconds ?? 50);
+    // While nothing changed, don't resend the full steps (they can hold kilobytes of code) on every poll.
+    if (plan?.status === "pending") {
+      return {
+        planId: plan.planId,
+        status: plan.status,
+        risk: plan.risk,
+        expiresAt: plan.expiresAt,
+        steps: Array.isArray(plan.steps)
+          ? plan.steps.map((s: any) => ({ index: s.index, tool: s.tool, risk: s.risk }))
+          : undefined,
+        next: nextStepFor(plan),
+      };
+    }
     return { ...plan, next: nextStepFor(plan) };
   },
 });

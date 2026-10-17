@@ -95,6 +95,14 @@ test("extractElementIds finds ids under id-like keys only", () => {
   assert.equal(extractElementIds({ elementIds: Array.from({ length: 900 }, (_, i) => i + 1) }).length, 500);
 });
 
+test("extractElementIds accepts numeric-string ids (framework tools) but not UniqueIds or link refs", () => {
+  const ids = extractElementIds({
+    elementIds: ["220128", "9c52afbd-bc95-46e1-99c7-e36a3633d730-00035be0", "12:34"],
+    items: [{ elementId: "220129", value: "5" }],
+  });
+  assert.deepEqual(ids.sort((a, b) => a - b), [220128, 220129]);
+});
+
 test("canonical JSON sorts keys, normalises numbers and drops undefined", () => {
   assert.equal(canonicalJson({ b: 1, a: { d: 5.0, c: -0 } }), '{"a":{"c":0,"d":5},"b":1}');
   assert.equal(canonicalHash({ x: 1, y: undefined }), canonicalHash({ x: 1 }));

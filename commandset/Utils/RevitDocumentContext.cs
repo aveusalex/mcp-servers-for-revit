@@ -95,13 +95,44 @@ namespace RevitMCPCommandSet.Utils
         public static string CurrentTargetDocId =>
             AppDomain.CurrentDomain.GetData(TargetKey) as string;
 
+        /// <summary>
+        /// Same rule as the plugin's DocumentSessionManager.DocIdOf: the base id (CreationGUID, else
+        /// ProjectInformation.UniqueId), suffixed with a path key while another open document shares it.
+        /// </summary>
         private static string DocIdOf(Document doc)
+        {
+            string baseId = BaseIdOf(doc);
+            if (baseId == null) return null;
+
+            foreach (Document other in doc.Application.Documents)
+            {
+                if (other.IsLinked || other.Equals(doc)) continue;
+                string otherBase;
+                try { otherBase = BaseIdOf(other); }
+                catch { continue; }
+                if (otherBase == baseId)
+                    return baseId + "~" + PathKey(doc);
+            }
+            return baseId;
+        }
+
+        private static string BaseIdOf(Document doc)
         {
             var creationGuid = doc.GetType().GetProperty("CreationGUID")?.GetValue(doc);
             if (creationGuid is Guid guid && guid != Guid.Empty)
                 return guid.ToString("D");
 
             return doc.ProjectInformation?.UniqueId;
+        }
+
+        private static string PathKey(Document doc)
+        {
+            string key = string.IsNullOrEmpty(doc.PathName) ? doc.Title ?? "" : doc.PathName.ToLowerInvariant();
+            using (var sha = System.Security.Cryptography.SHA1.Create())
+            {
+                byte[] hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(key));
+                return BitConverter.ToString(hash, 0, 4).Replace("-", "").ToLowerInvariant();
+            }
         }
     }
 }
