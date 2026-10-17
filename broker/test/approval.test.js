@@ -77,6 +77,31 @@ test("the owning session's manifest drives classification", async () => {
   await broker.stop();
 });
 
+test("dryRun: trusted for framework tools only; dryRun=false matches a plan step without it", async () => {
+  const { broker, port } = await bootBroker();
+  const plugin = await pluginClient(port, { tools: [{ name: "set_parameters", kind: "write", risk: "medium" }] });
+  const mcp = await mcpClient(port);
+  const base = { type: "command", docId: "doc-A", command: "set_parameters" };
+  // A framework dry run changes nothing: no approval.
+  let r = await mcp.request({ ...base, correlationId: cid(), params: { elementIds: [1], dryRun: true } });
+  assert.equal(r.result.ok, true);
+  // A legacy command would ignore dryRun, so it is still gated.
+  r = await mcp.request({ ...base, command: "delete_element", correlationId: cid(), params: { elementIds: [1], dryRun: true } });
+  assert.equal(r.error.code, "APPROVAL_REQUIRED");
+  // The real call (server injects dryRun:false) is gated, and the hint carries the exact step.
+  r = await mcp.request({ ...base, correlationId: cid(), params: { elementIds: [1], dryRun: false } });
+  assert.equal(r.error.code, "APPROVAL_REQUIRED");
+  assert.deepEqual(r.error.details.step, { tool: "set_parameters", args: { elementIds: [1] } });
+  assert.match(r.error.hint, /"tool":"set_parameters"/);
+  assert.match(r.error.hint, /dryRun=true/);
+
+  const plan = await createPlan(mcp, "doc-A", [{ tool: "set_parameters", args: { elementIds: [1], dryRun: false } }]);
+  await decide(plugin, plan.planId);
+  r = await mcp.request({ ...base, planId: plan.planId, correlationId: cid(), params: { elementIds: [1], dryRun: false } });
+  assert.equal(r.result.ok, true);
+  await broker.stop();
+});
+
 test("a heartbeat without tools keeps the registered manifest", async () => {
   const { broker, port } = await bootBroker();
   const plugin = await pluginClient(port, { tools: [{ name: "mystery_tool", kind: "read", risk: "none" }] });

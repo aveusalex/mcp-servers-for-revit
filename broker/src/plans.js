@@ -3,7 +3,7 @@ import path from "path";
 import crypto from "crypto";
 import { EventEmitter } from "events";
 import { plansDir, PLAN_TTL_MS } from "./config.js";
-import { canonicalHash, canonicalJson } from "./canonical.js";
+import { canonicalHash, canonicalJson, stepArgs } from "./canonical.js";
 
 /**
  * Change plans awaiting (or holding) a human decision.
@@ -196,9 +196,9 @@ export class PlanStore extends EventEmitter {
    * @returns {number} step index or -1
    */
   findStep(plan, tool, args) {
-    const want = canonicalJson(args ?? {});
+    const want = canonicalJson(stepArgs(args ?? {}));
     for (const s of plan.steps) {
-      if (s.status === "pending" && s.tool === tool && canonicalJson(s.args) === want) return s.index;
+      if (s.status === "pending" && s.tool === tool && canonicalJson(stepArgs(s.args)) === want) return s.index;
     }
     return -1;
   }

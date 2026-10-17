@@ -16,7 +16,7 @@ import {
 } from "./config.js";
 import { Registry } from "./registry.js";
 import { AuditLog, auditParams } from "./audit.js";
-import { canonicalHash, canonicalJson } from "./canonical.js";
+import { canonicalHash, canonicalJson, stepArgs } from "./canonical.js";
 import { classify, classifyBatch, extractElementIds, maxRisk, needsApproval, parseManifest } from "./classify.js";
 import { PlanStore, publicPlan } from "./plans.js";
 
@@ -418,7 +418,16 @@ export class Broker {
       return this._reply(mcpWs, correlationId, { result: this._runningPayload(running, true) });
     }
 
-    if (this.approvalMode === "look_only" && cls.kind === "write") {
+    // A dry run is rolled back by the framework dispatcher, so it changes
+    // nothing and needs no approval. Only trusted for framework tools: legacy
+    // commands ignore dryRun and would really write.
+    const trustedDryRun =
+      params.dryRun === true &&
+      (command === "execute_batch"
+        ? manifest?.has("execute_batch") === true && params.steps.every((s) => manifest.has(s.tool))
+        : manifest?.has(command) === true);
+
+    if (this.approvalMode === "look_only" && cls.kind === "write" && !trustedDryRun) {
       return reject("LOOK_ONLY", `'${command}' changes the model and the broker is in look_only mode`, {
         hint: "Only read tools are allowed. Ask the user to change REVIT_MCP_APPROVAL if edits are intended.",
       });
@@ -446,16 +455,19 @@ export class Broker {
         return reject("PLAN_STEP_ALREADY_EXECUTED", `That step of ${planId} has already been claimed`);
       }
       planCtx = { plan, indexes, mode: command === "execute_batch" ? "batch" : "single" };
-    } else if (this.approvalMode === "ask_first" && needsApproval(cls.risk)) {
+    } else if (this.approvalMode === "ask_first" && needsApproval(cls.risk) && !trustedDryRun) {
+      const step = { tool: command, args: stepArgs(params) };
       return reject(
         "APPROVAL_REQUIRED",
         `'${command}' is a ${cls.risk}-risk ${cls.kind} and needs the user's approval in Revit before it runs.`,
         {
           hint:
-            "Call propose_change_plan with this exact step ({tool, args} below), tell the user to review it in the " +
-            "Revit approval window, call wait_for_plan_decision, then execute_plan.",
+            "Call propose_change_plan with steps=[" + truncate(JSON.stringify(step), 4000) + "] (exactly these " +
+            "args), tell the user to review it in the Revit approval window, call wait_for_plan_decision, then " +
+            "execute_plan." +
+            (cls.source === "manifest" ? " To preview the effect first, call the tool with dryRun=true (no approval needed)." : ""),
           recommendedTool: "propose_change_plan",
-          details: { docId, risk: cls.risk, kind: cls.kind, step: { tool: command, args: params } },
+          details: { docId, risk: cls.risk, kind: cls.kind, step },
         }
       );
     }
@@ -491,8 +503,8 @@ export class Broker {
   _matchPlanSteps(plan, command, params) {
     if (command === "execute_batch") {
       const pending = plan.steps.filter((s) => s.status === "pending");
-      const want = canonicalJson(pending.map((s) => ({ tool: s.tool, args: s.args })));
-      const got = canonicalJson((params.steps ?? []).map((s) => ({ tool: s?.tool, args: s?.args ?? {} })));
+      const want = canonicalJson(pending.map((s) => ({ tool: s.tool, args: stepArgs(s.args) })));
+      const got = canonicalJson((params.steps ?? []).map((s) => ({ tool: s?.tool, args: stepArgs(s?.args ?? {}) })));
       return pending.length && want === got ? pending.map((s) => s.index) : null;
     }
     const i = this.plans.findStep(plan, command, params);
@@ -711,7 +723,7 @@ export class Broker {
 
     const manifest = this.sessionTools.get(doc.sessionId);
     const classified = steps.map((s) => {
-      const args = s.args ?? {};
+      const args = stepArgs(s.args ?? {});
       const c = classify(s.tool, args, manifest);
       return { tool: s.tool, args, kind: c.kind, risk: c.risk, affectedElementIds: extractElementIds(args) };
     });
@@ -930,6 +942,10 @@ function isFailure(result, error) {
     if (result.ok === false || result.Success === false || result.success === false) return true;
   }
   return false;
+}
+
+function truncate(text, max) {
+  return text.length > max ? text.slice(0, max) + "...(truncated)" : text;
 }
 
 function clampWait(waitSeconds) {

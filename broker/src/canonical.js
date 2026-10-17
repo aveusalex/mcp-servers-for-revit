@@ -29,6 +29,20 @@ function normalize(value) {
   return out;
 }
 
+/**
+ * The args of a step as a plan records and matches them: `dryRun: false` is
+ * the framework default the MCP server injects on every write call, so it is
+ * dropped to keep a plan step and the later real call identical.
+ *
+ * @param {any} args
+ */
+export function stepArgs(args) {
+  if (!args || typeof args !== "object" || Array.isArray(args)) return args ?? {};
+  if (!("dryRun" in args) || args.dryRun === true) return args;
+  const { dryRun, ...rest } = args;
+  return rest;
+}
+
 /** SHA-256 hex of the canonical JSON of `value`. */
 export function canonicalHash(value) {
   return crypto.createHash("sha256").update(canonicalJson(value)).digest("hex");
