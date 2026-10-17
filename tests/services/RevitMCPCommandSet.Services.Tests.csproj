@@ -18,6 +18,11 @@
     <ItemGroup>
         <Compile Include="..\..\commandset\Framework\Services\Core\**\*.cs" Link="Core\%(RecursiveDir)%(Filename)%(Extension)" />
         <Compile Include="..\..\commandset\Framework\ToolException.cs" Link="Framework\ToolException.cs" />
+        <!-- Millwork layout (pure geometry of create_millwork_module). -->
+        <Compile Include="..\..\commandset\Framework\Schema\SchemaAttributes.cs" Link="Framework\SchemaAttributes.cs" />
+        <Compile Include="..\..\commandset\Tools\Architecture\Support\ArchArgs.cs" Link="Millwork\ArchArgs.cs" />
+        <Compile Include="..\..\commandset\Tools\Millwork\Support\MillworkDesign.cs" Link="Millwork\MillworkDesign.cs" />
+        <Compile Include="..\..\commandset\Tools\Millwork\Support\MillworkLayout.cs" Link="Millwork\MillworkLayout.cs" />
     </ItemGroup>
 
     <ItemGroup>
