@@ -13,8 +13,11 @@
     "scripts": {
         "clean": "rimraf build",
         "prebuild": "npm run clean",
-        "build": "tsc",
+        "build": "tsc && node scripts/copy-assets.mjs",
         "test": "npm run build && node --test test/*.test.js",
+        "manifest": "node scripts/manifest.mjs",
+        "manifest:check": "node scripts/manifest.mjs --check",
+        "manifest:sample": "node scripts/manifest.mjs --sample",
         "prepublishOnly": "npm run build"
     },
     "files": [
@@ -44,6 +47,7 @@
     "homepage": "https://github.com/mcp-servers-for-revit/mcp-servers-for-revit#readme",
     "dependencies": {
         "@modelcontextprotocol/sdk": "^1.7.0",
+        "ajv": "^8.20.0",
         "better-sqlite3": "^12.8.0",
         "ws": "^8.18.1",
         "zod": "^3.24.2"
