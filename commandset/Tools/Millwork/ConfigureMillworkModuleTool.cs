@@ -75,6 +75,8 @@ namespace RevitMCPCommandSet.Tools.Millwork
             var oldGroupId = module.Group?.Id.GetValue();
             GroupType oldType = module.Group?.GroupType;
             string keepName = oldType?.Name;
+            // Keep the id: after UngroupMembers the GroupType wrapper can be invalid while the type is still in the model.
+            var oldTypeId = oldType?.Id;
             if (module.Group != null)
             {
                 if (module.Group.Pinned)
@@ -86,14 +88,13 @@ namespace RevitMCPCommandSet.Tools.Millwork
             }
             doc.Delete(oldIds);
             bool typeReused = false;
-            if (oldType != null && oldType.IsValidObject)
+            if (oldTypeId != null && doc.GetElement(oldTypeId) is GroupType)
             {
-                // GroupType.Groups is stale until a regeneration (live test left the old type behind): count the
-                // remaining instances directly.
+                // GroupType.Groups is stale until a regeneration, and the ungrouped group itself is only removed at commit
+                // (live test): count the other instances directly, ignoring this module's own group.
                 doc.Regenerate();
-                var oldTypeId = oldType.Id;
                 bool stillUsed = new FilteredElementCollector(doc).OfClass(typeof(Group))
-                    .Cast<Group>().Any(g => g.GroupType?.Id == oldTypeId);
+                    .Cast<Group>().Any(g => g.GroupType?.Id == oldTypeId && g.Id.GetValue() != oldGroupId);
                 if (!stillUsed) doc.Delete(oldTypeId);
                 else typeReused = true;
             }
@@ -104,6 +105,25 @@ namespace RevitMCPCommandSet.Tools.Millwork
                 ? keepName
                 : MillworkRevit.GroupNameFor(design);
             var (group, created) = MillworkRevit.BuildModule(doc, module.ModuleId, design, parts, placement, materials, groupName);
+
+            // Second chance for the old type (live test: it survived the delete above): once the new group exists,
+            // remove any model group type with the old name that no group uses any more.
+            if (!typeReused && keepName != null && !string.Equals(keepName, group?.GroupType?.Name, StringComparison.Ordinal))
+            {
+                doc.Regenerate();
+                var usedTypeIds = new HashSet<long>(new FilteredElementCollector(doc).OfClass(typeof(Group)).Cast<Group>()
+                    .Where(g => g.GroupType != null && g.Id.GetValue() != oldGroupId).Select(g => g.GroupType.Id.GetValue()));
+                var orphans = new FilteredElementCollector(doc).OfClass(typeof(GroupType)).Cast<GroupType>()
+                    .Where(t => t.Name == keepName && !usedTypeIds.Contains(t.Id.GetValue())).Select(t => t.Id).ToList();
+                foreach (var id in orphans)
+                {
+                    try { doc.Delete(id); }
+                    catch (Exception ex)
+                    {
+                        ctx.Warnings.Add(new ToolWarning($"The old group type '{keepName}' could not be removed: {ex.Message}", null, "info"));
+                    }
+                }
+            }
             foreach (var n in notes) ctx.Warnings.Add(new ToolWarning(n, null, "info"));
             if (typeReused)
                 ctx.Warnings.Add(new ToolWarning("Other copies of the old group still exist; only this one was rebuilt (the others keep the old layout).", null, "info"));
