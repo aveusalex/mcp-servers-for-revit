@@ -1,7 +1,235 @@
 {
   "version": 1,
-  "capabilityHash": "4543b52b3570de9d9e74d4d183a14531450532a0bb52fe735aaf6b2026e743ad",
+  "capabilityHash": "ad99d6957931c00c82c4c34a81033ee257581b38c37ee3e2cd6cbd16c14d35f7",
   "tools": [
+    {
+      "name": "create_schedule",
+      "description": "Create a schedule (regular, material takeoff, key, sheet list or view list) for a category in any language, with fields in order (heading, hidden, width mm, alignment, totals), filters (eq, neq, gt/gte/lt/lte in mm/m2/m3/deg, contains, begins_with, ends_with, has_value...), sorting/grouping (header, footer, blank line), itemization and grand total. Fields are resolved before anything is created; returns the definition read back. Undo: Ctrl+Z or delete the returned schedule id.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Schedule name, unique among schedules (e.g. \"Tabela de Portas\").",
+            "type": "string"
+          },
+          "kind": {
+            "description": "regular (default), material_takeoff, key, sheet_list or view_list.",
+            "type": "string",
+            "enum": [
+              "regular",
+              "material_takeoff",
+              "key",
+              "sheet_list",
+              "view_list"
+            ],
+            "default": "regular"
+          },
+          "category": {
+            "description": "Category in any language (OST_Doors, Doors, Portas). Required except for sheet_list/view_list. \"OST_MultiCategory\" for a multi-category schedule.",
+            "type": "string"
+          },
+          "fields": {
+            "description": "Fields in column order. Reference them language-neutrally with builtIn/guid when possible (see get_schedulable_fields).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "parameter": {
+                  "description": "Field to add: {builtIn} (e.g. ROOM_AREA, language-neutral), {guid} (shared parameter) or {name} as listed by get_schedulable_fields (\"Count\", \"Área\", ...).",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "fieldType": {
+                  "description": "Disambiguates fields with the same parameter: Instance, ElementType (alias: type), Count, Room, FromRoom, ToRoom, Material, MaterialQuantity, ProjectInfo... (see get_schedulable_fields).",
+                  "type": "string"
+                },
+                "heading": {
+                  "description": "Column heading (default: the parameter name).",
+                  "type": "string"
+                },
+                "hidden": {
+                  "description": "Hide the column (it still works for filters and sorting). Default false.",
+                  "type": "boolean"
+                },
+                "widthMm": {
+                  "description": "Column width on the sheet (paper size). Unit: mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "align": {
+                  "description": "Horizontal alignment of the column.",
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ]
+                },
+                "total": {
+                  "description": "Show totals for this column (only numeric fields that can be totalled). Default false.",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "parameter"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "filters": {
+            "description": "Filters (AND, at most 8) over fields listed in fields[] (hidden ones included).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "description": "Field already in the schedule (it may be hidden): its heading or name, or {builtIn}/{guid}/{name}.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "op": {
+                  "description": "Operator. Numbers are compared in wire units (mm, m2, m3, deg).",
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "neq",
+                    "gt",
+                    "gte",
+                    "lt",
+                    "lte",
+                    "contains",
+                    "not_contains",
+                    "begins_with",
+                    "not_begins_with",
+                    "ends_with",
+                    "not_ends_with",
+                    "has_value",
+                    "has_no_value"
+                  ]
+                },
+                "value": {
+                  "description": "Value to compare with (not used by has_value/has_no_value). Number in wire units, text, true/false, or a level/phase name for element fields."
+                }
+              },
+              "required": [
+                "field",
+                "op"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "sort": {
+            "description": "Sorting/grouping levels, in order, over fields listed in fields[].",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "description": "Field already in the schedule: its heading or name, or {builtIn}/{guid}/{name}.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "order": {
+                  "description": "asc (default) or desc.",
+                  "type": "string",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "default": "asc"
+                },
+                "header": {
+                  "description": "Show a group header row. Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "footer": {
+                  "description": "Show a group footer (title, count and totals). Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "blankLine": {
+                  "description": "Blank line after each group. Default false.",
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "itemized": {
+            "description": "Itemize every instance (default true). false groups identical rows (needs sort).",
+            "type": "boolean",
+            "default": true
+          },
+          "grandTotal": {
+            "description": "Show a grand total row (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "skipUnknownFields": {
+            "description": "false (default): an unknown or ambiguous field fails the call and nothing is created. true: such fields are skipped and listed in skippedFields.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
     {
       "name": "create_sheets",
       "description": "Create sheets in batch (real or placeholder): number, name, title block (\"Family: Type\", default title block if omitted), extra parameters and optional views/schedules placed at x/y in mm. Numbers are checked for forbidden characters and collisions (also within the request) before anything is created; names are read back. One transaction (one Ctrl+Z); all or nothing unless continueOnError. Undo: Ctrl+Z, or delete the returned sheet ids.",
@@ -132,6 +360,70 @@
         },
         "required": [
           "steps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "export_schedule",
+      "description": "Export schedules to CSV (UTF-8 with BOM, delimiter \";\" by default for Excel pt-BR) or tab-separated TXT, with the visible columns and cell text exactly as Revit shows it. Files go to Documents\\RevitMCP\\schedules by default (or another allowed folder; others fail with PATH_NOT_ALLOWED), named after the schedule. Returns each path and row count. The model is not changed.",
+      "kind": "read",
+      "risk": "low",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedules": {
+            "description": "Schedules to export, by name or id (up to 50).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "folder": {
+            "description": "Output folder: absolute inside an allowed folder, or relative to Documents\\RevitMCP. Default Documents\\RevitMCP\\schedules.",
+            "type": "string"
+          },
+          "format": {
+            "description": "csv (default, delimiter applies) or txt (tab-separated).",
+            "type": "string",
+            "enum": [
+              "csv",
+              "txt"
+            ],
+            "default": "csv"
+          },
+          "delimiter": {
+            "description": "CSV delimiter (default \";\", which Excel in pt-BR opens directly; numbers keep the project's decimal comma).",
+            "type": "string",
+            "default": ";"
+          },
+          "includeHeaders": {
+            "description": "Write the column headings as the first line (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "includeTitle": {
+            "description": "Write the schedule title as the very first line (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "skipBlankRows": {
+            "description": "Leave out blank separator rows (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "overwrite": {
+            "description": "Overwrite existing files (default true). false fails if a file exists.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "schedules"
         ],
         "additionalProperties": false
       }
@@ -439,6 +731,129 @@
       }
     },
     {
+      "name": "get_schedulable_fields",
+      "description": "List the fields that can be added to a schedule: name (Revit's language), fieldType (Instance, ElementType, Count, Room, Material...), parameterId, builtIn and guid, so create_schedule and modify_schedule_fields can reference them language-neutrally. Works for an existing schedule or for a category + kind not scheduled yet (probed with a temporary schedule that is always rolled back; nothing is changed). Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Existing schedule (name or id). Give this, or category (+ kind) for a schedule not created yet.",
+            "type": "string"
+          },
+          "category": {
+            "description": "Category of a schedule not created yet, in any language (OST_Rooms, Rooms, Ambientes). Not needed for sheet_list/view_list.",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Kind of the schedule to probe when using category (default regular).",
+            "type": "string",
+            "enum": [
+              "regular",
+              "material_takeoff",
+              "key",
+              "sheet_list",
+              "view_list"
+            ],
+            "default": "regular"
+          },
+          "fieldTypes": {
+            "description": "Only these field types, e.g. [\"Instance\", \"ElementType\", \"Room\", \"Material\"].",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nameContains": {
+            "description": "Only fields whose name contains this text (case and accents ignored).",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Page size, 1-2000 (default 500).",
+            "type": "integer",
+            "default": 500
+          },
+          "offset": {
+            "description": "Fields to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_schedule_data",
+      "description": "Read what a schedule shows: the visible columns and the rows as Revit renders them (cell text with the project's formatting and units, calculated values included; hidden fields are left out). Group headers/footers and the grand total come as ordinary rows, in table order. Paged with limit/offset over the body rows; use export_schedule for a CSV file. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Schedule name or id (see list_schedules).",
+            "type": "string"
+          },
+          "includeHeadings": {
+            "description": "Also return the heading rows (column headings and heading groups) as Revit draws them. Default false: columns[] already names each column.",
+            "type": "boolean",
+            "default": false
+          },
+          "skipBlankRows": {
+            "description": "Leave out blank separator rows (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "description": "Rows per page, 1-2000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Rows to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "required": [
+          "schedule"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_schedule_definition",
+      "description": "Full definition of a schedule: kind, category, fields in order (name, heading, fieldType, builtIn/guid, hidden, calculated/combined, width in mm, alignment, totals), filters (op and value in wire units), sorting/grouping (order, header, footer, blank line), itemization, grand totals and title/headers/grid-line flags. Formulas of calculated fields are not readable through the Revit API. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Schedule name or id (see list_schedules).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_session_context",
       "description": "Call first. Returns this Revit session's state: add-in version and capabilityHash (compare with the server's manifest to detect an outdated add-in), Revit version/build/language, every open document (docId, title, isFamilyDocument, isWorkshared, isActive, isReadOnly, isModified), the active document, the targeted document, the active view and the number of queued tool calls.",
       "kind": "read",
@@ -450,6 +865,160 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_schedules",
+      "description": "List the schedules of the document (regular, material takeoff, key, sheet/view lists, note blocks) with id, name, kind, category, field count and the sheets they are placed on. Internal title-block revision schedules and schedule templates are excluded. Filter by kind, category (any language) or name; paged with limit/offset. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "Only schedules of this kind.",
+            "type": "string",
+            "enum": [
+              "regular",
+              "material_takeoff",
+              "key",
+              "sheet_list",
+              "view_list",
+              "revision",
+              "note_block",
+              "keynote_legend"
+            ]
+          },
+          "category": {
+            "description": "Only schedules of this category, in any language (OST_Doors, Doors, Portas).",
+            "type": "string"
+          },
+          "nameContains": {
+            "description": "Only schedules whose name contains this text (case and accents ignored).",
+            "type": "string"
+          },
+          "includePlacement": {
+            "description": "List the sheets each schedule is placed on (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "description": "Page size, 1-1000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Schedules to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "modify_schedule_fields",
+      "description": "Edit the columns of a schedule with ordered operations: add a schedulable field (builtIn/guid/name, optional index), remove, move to an index, or update heading, hidden, width (mm), alignment and totals. All operations succeed or none is applied; unknown fields fail with suggestions instead of being ignored. Calculated fields cannot be created via the API. Returns the fields read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Schedule name or id.",
+            "type": "string"
+          },
+          "operations": {
+            "description": "Operations applied in order, all or nothing (up to 100).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "description": "add (a schedulable field), remove, move (to index) or update (heading, hidden, width, alignment, totals).",
+                  "type": "string",
+                  "enum": [
+                    "add",
+                    "remove",
+                    "move",
+                    "update"
+                  ]
+                },
+                "field": {
+                  "description": "add: {builtIn}/{guid}/{name} of a schedulable field (see get_schedulable_fields). Others: the column heading or name of a field in the schedule.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "fieldType": {
+                  "description": "add only: disambiguates fields with the same parameter (Instance, ElementType/type, Room, Material...).",
+                  "type": "string"
+                },
+                "index": {
+                  "description": "add/move: 0-based position among all fields (hidden included). add without index appends.",
+                  "type": "integer"
+                },
+                "heading": {
+                  "description": "New column heading.",
+                  "type": "string"
+                },
+                "hidden": {
+                  "description": "Hide or show the column.",
+                  "type": "boolean"
+                },
+                "widthMm": {
+                  "description": "Column width on the sheet (paper size). Unit: mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "align": {
+                  "description": "Horizontal alignment.",
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ]
+                },
+                "total": {
+                  "description": "Show totals for the column (numeric fields only).",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "op",
+                "field"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "schedule",
+          "operations"
+        ],
         "additionalProperties": false
       }
     },
@@ -585,6 +1154,181 @@
             "default": false
           }
         },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_schedule_filters_sorting",
+      "description": "Set a schedule's filters (eq, neq, gt/gte/lt/lte with numbers in mm/m2/m3/deg, contains, begins_with, ends_with and negations, has_value/has_no_value; at most 8), sorting/grouping (asc/desc, header, footer, blank line), itemization, grand total, title/header/grid-line visibility and name. mode replace (default) or append. Filters and sorting only use fields already in the schedule (add hidden ones with modify_schedule_fields). Returns the definition read back. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "schedules",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "description": "Schedule name or id.",
+            "type": "string"
+          },
+          "filters": {
+            "description": "Filters (AND, at most 8 in total) over fields of the schedule (hidden ones included). Omit to leave filters as they are; [] with mode replace clears them.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "description": "Field already in the schedule (it may be hidden): its heading or name, or {builtIn}/{guid}/{name}.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "op": {
+                  "description": "Operator. Numbers are compared in wire units (mm, m2, m3, deg).",
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "neq",
+                    "gt",
+                    "gte",
+                    "lt",
+                    "lte",
+                    "contains",
+                    "not_contains",
+                    "begins_with",
+                    "not_begins_with",
+                    "ends_with",
+                    "not_ends_with",
+                    "has_value",
+                    "has_no_value"
+                  ]
+                },
+                "value": {
+                  "description": "Value to compare with (not used by has_value/has_no_value). Number in wire units, text, true/false, or a level/phase name for element fields."
+                }
+              },
+              "required": [
+                "field",
+                "op"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "sort": {
+            "description": "Sorting/grouping levels. Omit to leave sorting as it is; [] with mode replace clears it.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "description": "Field already in the schedule: its heading or name, or {builtIn}/{guid}/{name}.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "order": {
+                  "description": "asc (default) or desc.",
+                  "type": "string",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "default": "asc"
+                },
+                "header": {
+                  "description": "Show a group header row. Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "footer": {
+                  "description": "Show a group footer (title, count and totals). Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "blankLine": {
+                  "description": "Blank line after each group. Default false.",
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "mode": {
+            "description": "replace (default): the given lists replace the current ones. append: added after the current ones.",
+            "type": "string",
+            "enum": [
+              "replace",
+              "append"
+            ],
+            "default": "replace"
+          },
+          "itemized": {
+            "description": "Itemize every instance (true) or group identical rows (false).",
+            "type": "boolean"
+          },
+          "grandTotal": {
+            "description": "Show the grand total row.",
+            "type": "boolean"
+          },
+          "appearance": {
+            "description": "Title, headers and grid-line visibility.",
+            "type": "object",
+            "properties": {
+              "showTitle": {
+                "description": "Show the title row.",
+                "type": "boolean"
+              },
+              "showHeaders": {
+                "description": "Show the column headings.",
+                "type": "boolean"
+              },
+              "gridLines": {
+                "description": "Show grid lines in the body.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "newName": {
+            "description": "Rename the schedule (must be unique among schedules).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule"
+        ],
         "additionalProperties": false
       }
     },
