@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { WebSocket } from "ws";
 import { Broker } from "../src/broker.js";
 import { AuditLog } from "../src/audit.js";
+import { tempDir } from "./helpers.js";
 
 const TOKEN = "test-token";
 
@@ -16,7 +17,7 @@ class NullAudit extends AuditLog {
 
 /** Boot a broker on an ephemeral port. */
 async function bootBroker(opts = {}) {
-  const broker = new Broker({ port: 0, token: TOKEN, audit: new NullAudit(), ...opts });
+  const broker = new Broker({ port: 0, token: TOKEN, audit: new NullAudit(), plansDir: tempDir(), approvalMode: "auto", ...opts });
   await broker.start();
   const port = broker._wss.address().port;
   return { broker, port };
