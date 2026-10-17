@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "6949e4c14d20b4994c329953da65c4f3a65f381e1b7b2561b9f8c5dcec83270f",
+  "capabilityHash": "58b14e680a612fe90b3b9a59037a34d14ef98a1e28fd0abd725cf3724d9c6310",
   "tools": [
     {
       "name": "activate_view",
@@ -189,6 +189,1248 @@
           "view",
           "categories",
           "parameter"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_area",
+      "description": "Create areas (for area schedules / quadro de áreas) in the area plan of a scheme and level, creating that area plan if missing. Each item is a point inside an existing boundary, or a closed outline in mm that is first drawn as area boundary lines. Read-back: area in m², name, number, and a warning when it is not enclosed. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "areaScheme": {
+            "description": "Area scheme by name or id (e.g. \"Área bruta\" / \"Gross Building\"). Required when the document has more than one.",
+            "type": "string"
+          },
+          "level": {
+            "description": "Level by name or id.",
+            "type": "string"
+          },
+          "areaPlan": {
+            "description": "Area plan view by name or id. Default: the area plan of this scheme and level.",
+            "type": "string"
+          },
+          "createAreaPlanIfMissing": {
+            "description": "Create the area plan for this scheme and level when there is none. Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "items": {
+            "description": "Areas to create.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "point": {
+                  "description": "Plan point in mm inside the area. Optional when boundary is given (its centre is used).",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "boundary": {
+                  "description": "Closed outline in mm: area boundary lines are drawn along it before placing the area.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "description": "X coordinate in mm from the project's internal origin.",
+                        "type": "number",
+                        "x-unit": "mm"
+                      },
+                      "y": {
+                        "description": "Y coordinate in mm from the project's internal origin.",
+                        "type": "number",
+                        "x-unit": "mm"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "name": {
+                  "description": "Area name.",
+                  "type": "string"
+                },
+                "number": {
+                  "description": "Area number.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "level",
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_ceiling",
+      "description": "Create ceilings (forros) from a polygon in mm (with holes), a rectangle, or a room's boundary (inner finish face by default, optional boundaryOffset, e.g. -10 for a shadow gap). The ceiling type must be named; heightAboveLevel (mm) goes to 'Height Offset From Level'. Needs Revit 2022+. Every ceiling is read back (id, area m², height). One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Ceilings to create.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "boundary": {
+                  "description": "Outline: points (+holes), rectangle, or a room (inner finish face by default).",
+                  "type": "object",
+                  "properties": {
+                    "points": {
+                      "description": "Closed outline as plan points in mm (the last point connects back to the first; do not repeat the first point).",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "description": "X coordinate in mm from the project's internal origin.",
+                            "type": "number",
+                            "x-unit": "mm"
+                          },
+                          "y": {
+                            "description": "Y coordinate in mm from the project's internal origin.",
+                            "type": "number",
+                            "x-unit": "mm"
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "rectangle": {
+                      "description": "Rectangular outline (alternative to points).",
+                      "type": "object",
+                      "properties": {
+                        "origin": {
+                          "description": "Corner the rectangle starts from (before rotation), in mm.",
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "description": "X coordinate in mm from the project's internal origin.",
+                              "type": "number",
+                              "x-unit": "mm"
+                            },
+                            "y": {
+                              "description": "Y coordinate in mm from the project's internal origin.",
+                              "type": "number",
+                              "x-unit": "mm"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "width": {
+                          "description": "Size along X (before rotation), in mm.",
+                          "type": "number",
+                          "minimum": 1,
+                          "maximum": 1000000,
+                          "x-unit": "mm"
+                        },
+                        "depth": {
+                          "description": "Size along Y (before rotation), in mm.",
+                          "type": "number",
+                          "minimum": 1,
+                          "maximum": 1000000,
+                          "x-unit": "mm"
+                        },
+                        "rotation": {
+                          "description": "Counter-clockwise rotation around the origin corner, in degrees. Default 0.",
+                          "type": "number",
+                          "x-unit": "deg",
+                          "default": 0
+                        }
+                      },
+                      "required": [
+                        "origin",
+                        "width",
+                        "depth"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "holes": {
+                      "description": "Openings inside the outline (shafts, cut-outs). Only with points/rectangle.",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "points": {
+                            "description": "Closed list of plan points in mm (do not repeat the first point).",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "description": "X coordinate in mm from the project's internal origin.",
+                                  "type": "number",
+                                  "x-unit": "mm"
+                                },
+                                "y": {
+                                  "description": "Y coordinate in mm from the project's internal origin.",
+                                  "type": "number",
+                                  "x-unit": "mm"
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "points"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "room": {
+                      "description": "Room whose boundary is used, by element id, room number or room name (ambiguous names fail with the candidates).",
+                      "type": "string"
+                    },
+                    "boundaryLocation": {
+                      "description": "With room: which wall line bounds the outline. finish (default) = inner finish face of the walls; center = wall centreline; coreBoundary / coreCenter = wall core.",
+                      "type": "string",
+                      "enum": [
+                        "finish",
+                        "center",
+                        "coreBoundary",
+                        "coreCenter"
+                      ],
+                      "default": "finish"
+                    },
+                    "boundaryOffset": {
+                      "description": "Grows (positive) or shrinks (negative) the whole outline, holes included, in mm. E.g. -10 leaves a 10 mm gap to the walls.",
+                      "type": "number",
+                      "x-unit": "mm",
+                      "default": 0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "ceilingType": {
+                  "description": "Ceiling type as \"Family: Type\", type name or id. Required: never chosen for you.",
+                  "type": "string"
+                },
+                "level": {
+                  "description": "Level the height is measured from, by name or id. Optional with boundary.room (defaults to the room's level).",
+                  "type": "string"
+                },
+                "heightAboveLevel": {
+                  "description": "Height of the ceiling above the level in mm (Revit's 'Height Offset From Level'), e.g. 2600.",
+                  "type": "number",
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "boundary",
+                "ceilingType",
+                "heightAboveLevel"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back the whole call. true: failed items are skipped and listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_countertop",
+      "description": "Create a stone countertop (tampo) from a plan outline or rectangle in mm: top surface height above the level, thickness, rectangular cut-outs (sink/cooktop), optional front apron (saia) and backsplash (rodabanca) on chosen edges. method floor uses a named floor type (thickness must match) so it schedules as a floor; method directshape builds a Generic Model solid with a material. Returns ids, area (m²) and volume (m³). One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "points": {
+            "description": "Outline of the countertop in plan, mm (give points or rectangle). Edge i runs from point i to point i+1 (the last edge closes the outline).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "description": "X coordinate in mm from the project's internal origin.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "y": {
+                  "description": "Y coordinate in mm from the project's internal origin.",
+                  "type": "number",
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "rectangle": {
+            "description": "Rectangular outline. Edges: 0 = from the origin along width (front), 1 = right side, 2 = back, 3 = left side (before rotation).",
+            "type": "object",
+            "properties": {
+              "origin": {
+                "description": "Corner the rectangle starts from (before rotation), in mm.",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate in mm from the project's internal origin.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate in mm from the project's internal origin.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              },
+              "width": {
+                "description": "Size along X (before rotation), in mm.",
+                "type": "number",
+                "minimum": 1,
+                "maximum": 1000000,
+                "x-unit": "mm"
+              },
+              "depth": {
+                "description": "Size along Y (before rotation), in mm.",
+                "type": "number",
+                "minimum": 1,
+                "maximum": 1000000,
+                "x-unit": "mm"
+              },
+              "rotation": {
+                "description": "Counter-clockwise rotation around the origin corner, in degrees. Default 0.",
+                "type": "number",
+                "x-unit": "deg",
+                "default": 0
+              }
+            },
+            "required": [
+              "origin",
+              "width",
+              "depth"
+            ],
+            "additionalProperties": false
+          },
+          "level": {
+            "description": "Level by name or id.",
+            "type": "string"
+          },
+          "height": {
+            "description": "Height of the top surface above the level in mm (e.g. 900 kitchen, 800 bathroom).",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000,
+            "x-unit": "mm"
+          },
+          "thickness": {
+            "description": "Stone thickness in mm (e.g. 20 or 30). With method floor it must match the floor type's thickness.",
+            "type": "number",
+            "minimum": 5,
+            "maximum": 300,
+            "x-unit": "mm"
+          },
+          "method": {
+            "description": "floor: a floor of the named floorType (schedulable as a floor). directshape: a Generic Model solid with the given material.",
+            "type": "string",
+            "enum": [
+              "floor",
+              "directshape"
+            ]
+          },
+          "floorType": {
+            "description": "method floor: floor type for the top (e.g. \"Tampo granito 20 mm\").",
+            "type": "string"
+          },
+          "material": {
+            "description": "Material by name or id for the directshape parts (top with method directshape, apron and backsplash with both methods).",
+            "type": "string"
+          },
+          "cutouts": {
+            "description": "Rectangular cut-outs through the top (sink, cooktop).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "center": {
+                  "description": "Centre of the cut-out (sink/cooktop) in plan, mm.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "width": {
+                  "description": "Cut-out size along X before rotation, mm.",
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "x-unit": "mm"
+                },
+                "depth": {
+                  "description": "Cut-out size along Y before rotation, mm.",
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "x-unit": "mm"
+                },
+                "rotation": {
+                  "description": "Counter-clockwise rotation in degrees. Default 0.",
+                  "type": "number",
+                  "x-unit": "deg",
+                  "default": 0
+                }
+              },
+              "required": [
+                "center",
+                "width",
+                "depth"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "frontEdges": {
+            "description": "Edge indexes that get a front apron (saia). Default none.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "apronHeight": {
+            "description": "Total visible height of the front apron in mm, top thickness included (e.g. 40). Needs frontEdges.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000,
+            "x-unit": "mm"
+          },
+          "backsplashEdges": {
+            "description": "Edge indexes that get a backsplash (rodabanca/frontão). Default none.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "backsplashHeight": {
+            "description": "Backsplash height above the top in mm (e.g. 100). Needs backsplashEdges.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2000,
+            "x-unit": "mm"
+          },
+          "mark": {
+            "description": "Value for the Mark parameter (e.g. \"T01\").",
+            "type": "string"
+          }
+        },
+        "required": [
+          "level",
+          "height",
+          "thickness",
+          "method"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_floor",
+      "description": "Create floors (slabs or finish floors) from a polygon in mm (with holes), a rectangle, or a room's boundary (inner finish face by default, optional boundaryOffset). The floor type must be named. heightOffset (mm) is written to 'Height Offset From Level', not baked into the outline. Every floor is read back (id, area m², thickness, offset). One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Floors to create.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "boundary": {
+                  "description": "Outline: points (+holes), rectangle, or a room (inner finish face by default).",
+                  "type": "object",
+                  "properties": {
+                    "points": {
+                      "description": "Closed outline as plan points in mm (the last point connects back to the first; do not repeat the first point).",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "description": "X coordinate in mm from the project's internal origin.",
+                            "type": "number",
+                            "x-unit": "mm"
+                          },
+                          "y": {
+                            "description": "Y coordinate in mm from the project's internal origin.",
+                            "type": "number",
+                            "x-unit": "mm"
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "rectangle": {
+                      "description": "Rectangular outline (alternative to points).",
+                      "type": "object",
+                      "properties": {
+                        "origin": {
+                          "description": "Corner the rectangle starts from (before rotation), in mm.",
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "description": "X coordinate in mm from the project's internal origin.",
+                              "type": "number",
+                              "x-unit": "mm"
+                            },
+                            "y": {
+                              "description": "Y coordinate in mm from the project's internal origin.",
+                              "type": "number",
+                              "x-unit": "mm"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "width": {
+                          "description": "Size along X (before rotation), in mm.",
+                          "type": "number",
+                          "minimum": 1,
+                          "maximum": 1000000,
+                          "x-unit": "mm"
+                        },
+                        "depth": {
+                          "description": "Size along Y (before rotation), in mm.",
+                          "type": "number",
+                          "minimum": 1,
+                          "maximum": 1000000,
+                          "x-unit": "mm"
+                        },
+                        "rotation": {
+                          "description": "Counter-clockwise rotation around the origin corner, in degrees. Default 0.",
+                          "type": "number",
+                          "x-unit": "deg",
+                          "default": 0
+                        }
+                      },
+                      "required": [
+                        "origin",
+                        "width",
+                        "depth"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "holes": {
+                      "description": "Openings inside the outline (shafts, cut-outs). Only with points/rectangle.",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "points": {
+                            "description": "Closed list of plan points in mm (do not repeat the first point).",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "description": "X coordinate in mm from the project's internal origin.",
+                                  "type": "number",
+                                  "x-unit": "mm"
+                                },
+                                "y": {
+                                  "description": "Y coordinate in mm from the project's internal origin.",
+                                  "type": "number",
+                                  "x-unit": "mm"
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "points"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "room": {
+                      "description": "Room whose boundary is used, by element id, room number or room name (ambiguous names fail with the candidates).",
+                      "type": "string"
+                    },
+                    "boundaryLocation": {
+                      "description": "With room: which wall line bounds the outline. finish (default) = inner finish face of the walls; center = wall centreline; coreBoundary / coreCenter = wall core.",
+                      "type": "string",
+                      "enum": [
+                        "finish",
+                        "center",
+                        "coreBoundary",
+                        "coreCenter"
+                      ],
+                      "default": "finish"
+                    },
+                    "boundaryOffset": {
+                      "description": "Grows (positive) or shrinks (negative) the whole outline, holes included, in mm. E.g. -10 leaves a 10 mm gap to the walls.",
+                      "type": "number",
+                      "x-unit": "mm",
+                      "default": 0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "floorType": {
+                  "description": "Floor type as \"Family: Type\", type name or id. Required: never chosen for you.",
+                  "type": "string"
+                },
+                "level": {
+                  "description": "Level by name or id. Optional with boundary.room (defaults to the room's level); required otherwise.",
+                  "type": "string"
+                },
+                "heightOffset": {
+                  "description": "Height offset of the top of the floor from the level, in mm (Revit's 'Height Offset From Level'). Default 0.",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 0
+                },
+                "structural": {
+                  "description": "Mark the floor as structural. Default false.",
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [
+                "boundary",
+                "floorType"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back the whole call. true: failed items are skipped and listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_or_update_levels",
+      "description": "Create levels or update existing ones (upsert by name, or rename an existing level given in level): elevation in mm, optional floor plan and ceiling plan. Names are checked for forbidden characters and collisions and read back. Changing an elevation moves everything on that level; the result lists how many elements and views depend on it. Plan views are not renamed. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Levels to create or update.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "description": "Level name. If a level with this name exists it is updated, otherwise created (unless level is given).",
+                  "type": "string"
+                },
+                "level": {
+                  "description": "Existing level to update (name or id); it is renamed to name. Omit to match by name.",
+                  "type": "string"
+                },
+                "elevation": {
+                  "description": "Elevation in mm, as shown on the level head (relative to the level type's elevation base). Required to create.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "createPlanView": {
+                  "description": "Create a floor plan for the level if it has none. Default: true for new levels, false for existing ones.",
+                  "type": "boolean"
+                },
+                "createCeilingPlan": {
+                  "description": "Create a reflected ceiling plan for the level if it has none. Default false.",
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "floorPlanType": {
+            "description": "Floor plan view type for new plans, by name. Default: the document's default floor plan type.",
+            "type": "string"
+          },
+          "ceilingPlanType": {
+            "description": "Ceiling plan view type for new plans, by name. Default: the document's default ceiling plan type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_room_envelope",
+      "description": "Close rooms in one go: finish floor and ceiling over each room's inner outline, baseboard (rodapé) and ceiling trim (tabica) along its perimeter, each with an explicitly named type. Parts already present (a floor/ceiling over the room) are skipped by default. A failing part does not stop the others: every room reports created/skipped/failed per part with ids. Run with dryRun first to show the plan. One Ctrl+Z undoes the whole call.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rooms": {
+            "description": "Rooms by id, number or name. Give rooms or level.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "level": {
+            "description": "All placed rooms of this level (name or id). Give rooms or level.",
+            "type": "string"
+          },
+          "floorFinish": {
+            "description": "Finish floor (piso de acabamento) over the room's inner outline.",
+            "type": "object",
+            "properties": {
+              "floorType": {
+                "description": "Finish floor type (\"Family: Type\", name or id), e.g. \"Piso porcelanato 10 mm\".",
+                "type": "string"
+              },
+              "heightOffset": {
+                "description": "Top of the finish above the room's level in mm. Default 0 (level = finished floor).",
+                "type": "number",
+                "x-unit": "mm",
+                "default": 0
+              },
+              "boundaryOffset": {
+                "description": "Grow (+) or shrink (-) the room outline in mm. Default 0.",
+                "type": "number",
+                "x-unit": "mm",
+                "default": 0
+              }
+            },
+            "required": [
+              "floorType"
+            ],
+            "additionalProperties": false
+          },
+          "ceiling": {
+            "description": "Ceiling (forro) over the room's inner outline.",
+            "type": "object",
+            "properties": {
+              "ceilingType": {
+                "description": "Ceiling type (\"Family: Type\", name or id), e.g. \"Forro de gesso 12,5 mm\".",
+                "type": "string"
+              },
+              "heightAboveLevel": {
+                "description": "Ceiling height above the room's level in mm, e.g. 2600.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "boundaryOffset": {
+                "description": "Grow (+) or shrink (-) the room outline in mm, e.g. -10 for a shadow gap. Default 0.",
+                "type": "number",
+                "x-unit": "mm",
+                "default": 0
+              }
+            },
+            "required": [
+              "ceilingType",
+              "heightAboveLevel"
+            ],
+            "additionalProperties": false
+          },
+          "baseboard": {
+            "description": "Baseboard (rodapé) along the perimeter, interrupted at doors.",
+            "type": "object",
+            "properties": {
+              "method": {
+                "description": "line_family (exact per room, cut at openings) or wall_sweep (whole wall, cut by inserts).",
+                "type": "string",
+                "enum": [
+                  "line_family",
+                  "wall_sweep"
+                ]
+              },
+              "type": {
+                "description": "Line-based family type, or wall sweep type for wall_sweep.",
+                "type": "string"
+              },
+              "elevation": {
+                "description": "Height above the room's level in mm. Default: 0 for the baseboard, the ceiling height for the trim.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "reverseDirection": {
+                "description": "line_family: flip which side the profile sticks out. Default false.",
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "required": [
+              "method",
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          "ceilingTrim": {
+            "description": "Ceiling trim (tabica) along the perimeter at the ceiling line.",
+            "type": "object",
+            "properties": {
+              "method": {
+                "description": "line_family (exact per room, cut at openings) or wall_sweep (whole wall, cut by inserts).",
+                "type": "string",
+                "enum": [
+                  "line_family",
+                  "wall_sweep"
+                ]
+              },
+              "type": {
+                "description": "Line-based family type, or wall sweep type for wall_sweep.",
+                "type": "string"
+              },
+              "elevation": {
+                "description": "Height above the room's level in mm. Default: 0 for the baseboard, the ceiling height for the trim.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "reverseDirection": {
+                "description": "line_family: flip which side the profile sticks out. Default false.",
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "required": [
+              "method",
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          "existing": {
+            "description": "skip (default): rooms that already have a floor / ceiling over them do not get another. create: add anyway.",
+            "type": "string",
+            "enum": [
+              "skip",
+              "create"
+            ],
+            "default": "skip"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_room_perimeter_profile",
+      "description": "Run a baseboard (rodapé) or ceiling trim (tabica) along the perimeter of rooms, skipping door openings and room separation lines. method line_family places a line-based family per boundary piece (exact per room); method wall_sweep adds a wall sweep on the room side of each wall (whole wall, cut by inserts). Ceiling trims default to the height of the ceiling over the room. Returns ids and total length (m) per room. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rooms": {
+            "description": "Rooms by id, number or name. Give rooms or level.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "level": {
+            "description": "All placed rooms of this level (name or id). Give rooms or level.",
+            "type": "string"
+          },
+          "kind": {
+            "description": "baseboard = rodapé at the floor; ceiling_trim = tabica/moldura at the ceiling line.",
+            "type": "string",
+            "enum": [
+              "baseboard",
+              "ceiling_trim"
+            ]
+          },
+          "method": {
+            "description": "line_family: line-based family instances on each boundary piece, interrupted at openings (exact per room). wall_sweep: a wall sweep on the room side of each bounding wall (runs the whole wall; cut by doors).",
+            "type": "string",
+            "enum": [
+              "line_family",
+              "wall_sweep"
+            ]
+          },
+          "type": {
+            "description": "line_family: line-based family type (\"Family: Type\"), e.g. the office's rodapé family. wall_sweep: wall sweep type name.",
+            "type": "string"
+          },
+          "elevation": {
+            "description": "Height of the profile above the room's level in mm. Default: 0 for baseboard; the height of the ceiling over the room for ceiling_trim.",
+            "type": "number",
+            "x-unit": "mm"
+          },
+          "boundaryLocation": {
+            "description": "Which wall line the profile follows. Default finish (inner face of the walls).",
+            "type": "string",
+            "enum": [
+              "finish",
+              "center",
+              "coreBoundary",
+              "coreCenter"
+            ],
+            "default": "finish"
+          },
+          "skipOpenings": {
+            "description": "Interrupt the profile where a door/opening crosses its height. Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "skipSeparationLines": {
+            "description": "No profile along room separation lines (there is no wall). Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "minSegment": {
+            "description": "Pieces shorter than this (mm) are skipped. Default 50.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000,
+            "x-unit": "mm",
+            "default": 50
+          },
+          "reverseDirection": {
+            "description": "line_family: draw each piece the other way, which flips which side the profile sticks out. Default false (room on the left of each line).",
+            "type": "boolean",
+            "default": false
+          },
+          "continueOnError": {
+            "description": "false (default): a failing room rolls back the call. true: failing rooms are listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "kind",
+          "method",
+          "type"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_room_separation_lines",
+      "description": "Create room separation lines on a level (to split open areas or close rooms without walls), from a polyline of points or a list of segments, in mm. Drawn in a floor plan of that level (named, or the only one). Returns the line ids. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "description": "Level by name or id.",
+            "type": "string"
+          },
+          "view": {
+            "description": "Floor plan of that level to draw in, by name or id. Default: the level's floor plan when there is exactly one.",
+            "type": "string"
+          },
+          "points": {
+            "description": "Polyline of plan points in mm (consecutive points are joined). Give points or segments.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "description": "X coordinate in mm from the project's internal origin.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "y": {
+                  "description": "Y coordinate in mm from the project's internal origin.",
+                  "type": "number",
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "closed": {
+            "description": "With points: also join the last point to the first. Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "segments": {
+            "description": "Independent segments (alternative to points).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "description": "Start point in mm.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "end": {
+                  "description": "End point in mm.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "level"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_rooms",
+      "description": "Create rooms on a level: at given plan points (mm) with name/number, or automatically in every closed circuit (walls + room separation lines) with optional name and sequential numbers. Rooms that already exist are skipped by default. Each room is read back with its area (m²) and whether it is enclosed; dryRun lists the circuits it would fill. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "description": "points: one room per item point. all_circuits: a room in every closed circuit of the level (walls + separation lines).",
+            "type": "string",
+            "enum": [
+              "points",
+              "all_circuits"
+            ]
+          },
+          "level": {
+            "description": "Level by name or id.",
+            "type": "string"
+          },
+          "phase": {
+            "description": "Phase by name or id. Default: the project's last phase (where new construction usually goes).",
+            "type": "string"
+          },
+          "items": {
+            "description": "points mode: the rooms to create.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "point": {
+                  "description": "A plan point in mm inside the area the room should fill.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "name": {
+                  "description": "Room name (e.g. \"Sala\").",
+                  "type": "string"
+                },
+                "number": {
+                  "description": "Room number (e.g. \"101\"). Omit to let Revit number it.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "point"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "name": {
+            "description": "all_circuits mode: name given to every new room (optional).",
+            "type": "string"
+          },
+          "numberPrefix": {
+            "description": "all_circuits mode: prefix for the numbers (e.g. \"1\" gives 101, 102... with startNumber 1 and digits 2).",
+            "type": "string"
+          },
+          "startNumber": {
+            "description": "all_circuits mode: first sequential number. Omit to let Revit number the rooms.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "digits": {
+            "description": "all_circuits mode: minimum digits of the sequential part (zero padded). Default 2.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6,
+            "default": 2
+          },
+          "skipExisting": {
+            "description": "Skip circuits/points that already have a room in that phase. Default true.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "mode",
+          "level"
         ],
         "additionalProperties": false
       }
@@ -864,6 +2106,205 @@
         "required": [
           "name",
           "categories"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_walls",
+      "description": "Create walls by segment, polyline (open or closed) or rectangle, coordinates in mm. The wall type must be named (never defaulted); height is either a top level (+topOffset) or an unconnected height. locationLine says which face/centreline sits on the points (e.g. finishFaceInterior to draw the inner outline of a room); closed shapes put the exterior face outside. Returns ids, lengths and the read-back constraints. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Walls to create: each item is a segment, a polyline or a rectangle.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "shape": {
+                  "description": "segment: one wall between 2 points. polyline: one wall per edge of the points (closed adds the last→first edge). rectangle: 4 walls.",
+                  "type": "string",
+                  "enum": [
+                    "segment",
+                    "polyline",
+                    "rectangle"
+                  ]
+                },
+                "points": {
+                  "description": "Plan points in mm (segment: exactly 2; polyline: 2 or more).",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "description": "X coordinate in mm from the project's internal origin.",
+                        "type": "number",
+                        "x-unit": "mm"
+                      },
+                      "y": {
+                        "description": "Y coordinate in mm from the project's internal origin.",
+                        "type": "number",
+                        "x-unit": "mm"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "closed": {
+                  "description": "polyline only: also create the wall from the last point back to the first. Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "rectangle": {
+                  "description": "rectangle only: corner, width, depth and rotation.",
+                  "type": "object",
+                  "properties": {
+                    "origin": {
+                      "description": "Corner the rectangle starts from (before rotation), in mm.",
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "description": "X coordinate in mm from the project's internal origin.",
+                          "type": "number",
+                          "x-unit": "mm"
+                        },
+                        "y": {
+                          "description": "Y coordinate in mm from the project's internal origin.",
+                          "type": "number",
+                          "x-unit": "mm"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "width": {
+                      "description": "Size along X (before rotation), in mm.",
+                      "type": "number",
+                      "minimum": 1,
+                      "maximum": 1000000,
+                      "x-unit": "mm"
+                    },
+                    "depth": {
+                      "description": "Size along Y (before rotation), in mm.",
+                      "type": "number",
+                      "minimum": 1,
+                      "maximum": 1000000,
+                      "x-unit": "mm"
+                    },
+                    "rotation": {
+                      "description": "Counter-clockwise rotation around the origin corner, in degrees. Default 0.",
+                      "type": "number",
+                      "x-unit": "deg",
+                      "default": 0
+                    }
+                  },
+                  "required": [
+                    "origin",
+                    "width",
+                    "depth"
+                  ],
+                  "additionalProperties": false
+                },
+                "wallType": {
+                  "description": "Wall type as \"Family: Type\" (e.g. \"Parede básica: Alvenaria 140\"), type name or id. Required: never chosen for you.",
+                  "type": "string"
+                },
+                "baseLevel": {
+                  "description": "Base level by name or id.",
+                  "type": "string"
+                },
+                "baseOffset": {
+                  "description": "Base offset from the base level, in mm. Default 0.",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 0
+                },
+                "topLevel": {
+                  "description": "Top constraint level by name or id. Give topLevel or height, not both.",
+                  "type": "string"
+                },
+                "topOffset": {
+                  "description": "Top offset from topLevel, in mm (negative = below it). Only with topLevel.",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 0
+                },
+                "height": {
+                  "description": "Unconnected height in mm (wall not attached to a top level). Give topLevel or height, not both.",
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 1000000,
+                  "x-unit": "mm"
+                },
+                "locationLine": {
+                  "description": "Which line of the wall lies on the given points. finishFaceInterior with a closed outline makes the outline the room's inner face. Default wallCenterline.",
+                  "type": "string",
+                  "enum": [
+                    "wallCenterline",
+                    "coreCenterline",
+                    "finishFaceExterior",
+                    "finishFaceInterior",
+                    "coreFaceExterior",
+                    "coreFaceInterior"
+                  ],
+                  "default": "wallCenterline"
+                },
+                "exteriorSide": {
+                  "description": "Closed shapes only: put each wall's exterior face outside the outline (default), inside it, or keep Revit's side from the drawing direction.",
+                  "type": "string",
+                  "enum": [
+                    "outside",
+                    "inside",
+                    "asDrawn"
+                  ],
+                  "default": "outside"
+                },
+                "flip": {
+                  "description": "Swap the exterior and interior faces of every wall of this item (applied after exteriorSide). Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "structural": {
+                  "description": "Create structural walls. Default false (architectural partitions).",
+                  "type": "boolean",
+                  "default": false
+                },
+                "joinEnds": {
+                  "description": "Let the walls join at their ends (corners). Default true.",
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "required": [
+                "shape",
+                "wallType",
+                "baseLevel"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back the whole call. true: failed items are skipped and listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
         ],
         "additionalProperties": false
       }
@@ -2601,6 +4042,264 @@
       }
     },
     {
+      "name": "place_door_window",
+      "description": "Place doors or windows in a wall, at a distance along the wall (mm from its start to the opening centre) or at a point projected onto it, with optional sill height (mm). Before placing, checks that the opening fits in the wall's clear length (corners deducted) and does not overlap other openings, and refuses with the numbers in mm. Curtain walls are refused. Read-back: host, sill, head, position. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Doors/windows to place.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "wallId": {
+                  "description": "Id of the host wall.",
+                  "type": "integer"
+                },
+                "familyType": {
+                  "description": "Door or window type as \"Family: Type\", type name or id. An ambiguous name returns placed:false with candidates.",
+                  "type": "string"
+                },
+                "alongWall": {
+                  "description": "Distance in mm from the wall's start point to the centre of the opening. Give alongWall or point.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "point": {
+                  "description": "Plan point in mm near the wall; it is projected onto the wall's location line. Give alongWall or point.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "sillHeight": {
+                  "description": "Sill height in mm above the level (windows; doors usually 0). Omit to keep the family's default.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "level": {
+                  "description": "Level by name or id. Default: the wall's base level.",
+                  "type": "string"
+                },
+                "flipFacing": {
+                  "description": "Flip to open to the other side of the wall. Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "flipHand": {
+                  "description": "Swap the hinge side. Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "allowOverlap": {
+                  "description": "Skip the overlap check against other doors/windows in the wall. Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "parameters": {
+                  "description": "Instance parameters to set after placing, by name (e.g. {\"Marca\": \"P01\"}).",
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "wallId",
+                "familyType"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back the whole call. true: failed items are skipped and listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "place_family_instance",
+      "description": "Place family instances (furniture, fixtures, lights, equipment, plants, generic models): free on a level with offset, hosted on a wall/floor/ceiling, on a face of a host (e.g. lights under a ceiling), or along a line for line-based families. Coordinates in mm, rotation in degrees. The type must be named; an ambiguous name returns placed:false with candidates. Instance parameters can be set on creation. Returns ids and read-back location/level/host. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Instances to place.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "familyType": {
+                  "description": "Family type as \"Family: Type\", type name or id. An ambiguous name returns placed:false with the candidates.",
+                  "type": "string"
+                },
+                "category": {
+                  "description": "Category to narrow the type search (e.g. \"Mobiliário\", \"Furniture\", \"OST_LightingFixtures\").",
+                  "type": "string"
+                },
+                "placement": {
+                  "description": "auto (default) follows the family: point = free on a level; host = wall/floor/ceiling-hosted family; face = on a face of hostId (face-based or work-plane families, e.g. lights on a ceiling); line = line-based family from location to end.",
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "point",
+                    "host",
+                    "face",
+                    "line"
+                  ],
+                  "default": "auto"
+                },
+                "location": {
+                  "description": "Insertion point in mm (start point for line placement). z is only used to pick a face.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "z": {
+                      "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "end": {
+                  "description": "End point in mm for line placement.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "z": {
+                      "description": "Z in mm. For level-based placement it is ignored (use offset); for face placement it helps pick the face.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "level": {
+                  "description": "Level by name or id. Required for point/line placement; for hosted placement defaults to the host's level.",
+                  "type": "string"
+                },
+                "offset": {
+                  "description": "Elevation from the level in mm (e.g. 2100 for a wall-mounted item). Default 0. Not used for face placement.",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 0
+                },
+                "hostId": {
+                  "description": "Host element id (wall, floor, ceiling, roof or any element with faces) for host/face placement.",
+                  "type": "integer"
+                },
+                "faceSide": {
+                  "description": "face placement: which face of the host. auto = bottom of ceilings, top of floors/roofs, the nearest side of walls.",
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "bottom",
+                    "top",
+                    "side",
+                    "nearest"
+                  ],
+                  "default": "auto"
+                },
+                "rotation": {
+                  "description": "Rotation around the vertical axis in degrees, counter-clockwise. Default 0. Ignored for wall-hosted placement.",
+                  "type": "number",
+                  "x-unit": "deg",
+                  "default": 0
+                },
+                "flipFacing": {
+                  "description": "Flip the facing orientation after placing. Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "flipHand": {
+                  "description": "Flip the hand orientation after placing. Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "parameters": {
+                  "description": "Instance parameters to set after placing, by name, e.g. {\"Marca\": \"M01\"}; same value rules as set_parameters.",
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "familyType",
+                "location"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back the whole call. true: failed items are skipped and listed in failed[]. Ambiguous types never abort: they come back as placed:false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "save_selection",
       "description": "Save a named selection in the model (the same as Manage > Save Selection, synchronized to central with the model): the given element ids, or the current UI selection. With overwrite=true an existing saved selection of the same name gets the new elements. Returns its id and the element count read back. Undo with Ctrl+Z or delete_saved_selection. Supports dryRun.",
       "kind": "write",
@@ -3526,6 +5225,162 @@
         },
         "required": [
           "operation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "setup_project_levels",
+      "description": "Declarative project level setup: describe the floors (name + finished elevation in mm) and the tool derives finished (AC), structure (ES = AC - finishThickness) and ceiling (FO = AC + ceilingHeight) levels plus site levels, compares them with the model and returns a plan per level: create, adjust (elevation), rename, keep, extra or remove. Run with dryRun first to show the plan. Removing levels deletes their views and hosted elements and needs removeUnlisted + confirmRemove. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "floors": {
+            "description": "Floors (pavimentos) from bottom to top with their finished elevation.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "description": "Floor (pavimento) name used in the level names, e.g. \"Térreo\", \"Pavimento Tipo\", \"Cobertura\".",
+                  "type": "string"
+                },
+                "finishedElevation": {
+                  "description": "Finished floor elevation (AC, piso acabado) in mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "code": {
+                  "description": "Optional code for {code} in nameTemplate (e.g. \"N01\"). Default: the floor's position, 2 digits.",
+                  "type": "string"
+                },
+                "finishThickness": {
+                  "description": "Overrides finishThickness for this floor (mm).",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "x-unit": "mm"
+                },
+                "ceilingHeight": {
+                  "description": "Overrides ceilingHeight for this floor (mm).",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 50000,
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "name",
+                "finishedElevation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "kinds": {
+            "description": "Which levels each floor gets. Default [finished, structure, ceiling] (AC, ES, FO).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "finished",
+                "structure",
+                "ceiling"
+              ]
+            }
+          },
+          "finishThickness": {
+            "description": "Floor finish build-up in mm: structure level = finished - finishThickness. Required when kinds include structure.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2000,
+            "x-unit": "mm"
+          },
+          "ceilingHeight": {
+            "description": "Ceiling height above the finished floor in mm: ceiling level = finished + ceilingHeight. Required when kinds include ceiling.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 50000,
+            "x-unit": "mm"
+          },
+          "labels": {
+            "description": "Labels for {kind} in nameTemplate. Default AC / ES / FO.",
+            "type": "object",
+            "properties": {
+              "finished": {
+                "description": "Label of the finished-floor level (default \"AC\").",
+                "type": "string",
+                "default": "AC"
+              },
+              "structure": {
+                "description": "Label of the structure (top of slab) level (default \"ES\").",
+                "type": "string",
+                "default": "ES"
+              },
+              "ceiling": {
+                "description": "Label of the ceiling level (default \"FO\").",
+                "type": "string",
+                "default": "FO"
+              }
+            },
+            "additionalProperties": false
+          },
+          "nameTemplate": {
+            "description": "Level name pattern with {floor}, {kind}, {code} and {index} (1-based, 2 digits). Default \"{floor} - {kind}\". Follow the office naming (get_office_knowledge).",
+            "type": "string",
+            "default": "{floor} - {kind}"
+          },
+          "siteLevels": {
+            "description": "Extra levels used as is: terrain, sidewalk (calçada), platforms.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "description": "Level name, used as is (e.g. \"Terreno\", \"Calçada\").",
+                  "type": "string"
+                },
+                "elevation": {
+                  "description": "Elevation in mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "name",
+                "elevation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "adoptByElevation": {
+            "description": "Rename an unmatched existing level that sits at a wanted elevation (±1 mm) instead of creating a duplicate (e.g. the template's \"Nível 1\"). Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "removeUnlisted": {
+            "description": "Plan to delete existing levels that are not in the setup. Default false (they are reported as extra and kept).",
+            "type": "boolean",
+            "default": false
+          },
+          "confirmRemove": {
+            "description": "Required to actually delete levels (and the views and elements hosted on them). Without it a plan with removals is refused outside dryRun.",
+            "type": "boolean",
+            "default": false
+          },
+          "createPlanViews": {
+            "description": "Create a floor plan for finished levels and a ceiling plan for ceiling levels when missing. Default true.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "floors"
         ],
         "additionalProperties": false
       }
