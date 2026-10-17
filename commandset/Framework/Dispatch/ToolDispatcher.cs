@@ -62,6 +62,9 @@ namespace RevitMCPCommandSet.Framework
                 var dispatcher = new ToolDispatcher();
                 dispatcher._event = ExternalEvent.Create(dispatcher);
                 DocumentChangeTracker.EnsureSubscribed(uiApp?.Application);
+                // get_session_changes reports changes since the add-in started, not since its first call.
+                if (uiApp?.Application != null)
+                    RevitMCPCommandSet.Tools.Query.Support.SessionChangeLog.EnsureSubscribed(uiApp.Application);
                 Instance = dispatcher;
                 return dispatcher;
             }
