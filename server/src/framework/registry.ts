@@ -193,6 +193,12 @@ const enumKey = (s: string): string => s.toLowerCase().replace(/[\s_\-]/g, "");
  */
 export function normalizeEnums(value: any, schema: JsonSchema | undefined): any {
   if (!schema || typeof schema !== "object" || value == null) return value;
+  // Element ids are strings in some tools (they also accept UniqueIds) and integers in others: accept either
+  // form where the other is expected, as long as it is a plain whole number.
+  if (schema.type === "string" && typeof value === "number" && Number.isSafeInteger(value)) return String(value);
+  if (schema.type === "integer" && typeof value === "string" && /^-?\d{1,15}$/.test(value.trim())) {
+    return Number(value.trim());
+  }
   if (typeof value === "string" && Array.isArray(schema.enum)) {
     if (schema.enum.includes(value)) return value;
     const hit = schema.enum.filter((e: unknown) => typeof e === "string" && enumKey(e) === enumKey(value));

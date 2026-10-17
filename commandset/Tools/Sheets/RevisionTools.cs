@@ -198,7 +198,10 @@ namespace RevitMCPCommandSet.Tools.Sheets
                 var ids = sheet.GetAdditionalRevisionIds().ToList();
                 ids.AddRange(created.Select(r => r.Id).Where(id => !ids.Contains(id)));
                 sheet.SetAdditionalRevisionIds(ids);
-                var now = sheet.GetAllRevisionIds();
+                // GetAllRevisionIds only reflects the change after a regeneration (live test: it reported the new
+                // revision as missing); read back the list we just wrote, regenerated.
+                sheet.Document.Regenerate();
+                var now = sheet.GetAdditionalRevisionIds();
                 if (created.Any(r => !now.Contains(r.Id)))
                     throw new ToolException("REVISION_NOT_ASSIGNED", $"Revit did not add the revisions to sheet {sheet.SheetNumber}.");
             }
@@ -281,6 +284,7 @@ namespace RevitMCPCommandSet.Tools.Sheets
                     if (nowManual != add)
                         throw new ToolException("REVISION_NOT_ASSIGNED", $"Revit did not {(add ? "add" : "remove")} the revision on sheet {sheet.SheetNumber}.");
                     status = add ? "added" : "removed";
+                    sheet.Document.Regenerate(); // GetAllRevisionIds is stale until then
                 }
                 return new { index, sheetId = sheet.Id.GetValue(), number = sheet.SheetNumber, status, onSheet = sheet.GetAllRevisionIds().Contains(revision.Id) };
             }, s => s, "Sheet");

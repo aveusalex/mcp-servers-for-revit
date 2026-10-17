@@ -130,10 +130,13 @@ namespace RevitMCPCommandSet.Tools.Graphics
             foreach (var e in elements)
             {
                 var p = ps.Find(e, args.Parameter);
-                if (p == null)
+                // Some type values also exist on the instance but empty (e.g. SYMBOL_NAME_PARAM on walls): fall
+                // back to the type whenever the instance has no value, not only when the parameter is missing.
+                if (p == null || !p.HasValue || string.IsNullOrWhiteSpace(SafeDisplay(p) ?? p.AsString()))
                 {
                     var t = ParameterService.TypeOf(e);
-                    if (t != null) p = ps.Find(t, args.Parameter);
+                    var tp = t != null ? ps.Find(t, args.Parameter) : null;
+                    if (tp != null && tp.HasValue) p = tp;
                 }
                 if (p == null || !p.HasValue) { noValue.Add(e.Id); continue; }
                 var wire = ps.ReadWire(p, out var unit, out _);

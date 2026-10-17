@@ -160,6 +160,8 @@ namespace RevitMCPCommandSet.Tools.Query
             var cat = e.Category;
             if (cat == null || cat.CategoryType != CategoryType.Model) return false;
             if (Spatial.Contains(cat.Id.GetValue())) return false;
+            // The internal origin and base/survey points are "model" elements at the origin, not contents of a room.
+            if (e is BasePoint || e.GetType().Name == "InternalOrigin") return false;
             return !(e is RevitLinkInstance) && !(e is View);
         }
 

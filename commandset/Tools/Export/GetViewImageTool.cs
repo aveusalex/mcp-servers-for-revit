@@ -75,9 +75,15 @@ namespace RevitMCPCommandSet.Tools.Export
 
             bool jpg = string.Equals(a.Format, "jpg", StringComparison.OrdinalIgnoreCase);
             bool keep = !string.IsNullOrWhiteSpace(a.SaveTo);
-            string folder = keep
-                ? ExportSupport.OutputFolder(doc, a.SaveTo)
-                : PathPolicy.Resolve(Guid.NewGuid().ToString("N"), Path.Combine("tmp", "images"));
+            // saveTo may name a file ("planta.png", live test) or a folder.
+            string targetFile = keep && Path.HasExtension(a.SaveTo)
+                ? PathPolicy.Resolve(a.SaveTo, "exports", forWrite: true)
+                : null;
+            string folder = targetFile != null
+                ? PathPolicy.Resolve(Guid.NewGuid().ToString("N"), Path.Combine("tmp", "images"))
+                : keep
+                    ? ExportSupport.OutputFolder(doc, a.SaveTo)
+                    : PathPolicy.Resolve(Guid.NewGuid().ToString("N"), Path.Combine("tmp", "images"));
             Directory.CreateDirectory(folder);
 
             var baseName = ExportSupport.SafeFileName($"{view.Name}-{a.ViewId}", "view");
@@ -110,6 +116,12 @@ namespace RevitMCPCommandSet.Tools.Export
                 if (file == null)
                     throw new ToolException("EXPORT_FAILED", $"Revit did not write an image for '{view.Name}'.",
                         "The view may be empty or not printable.");
+                if (targetFile != null)
+                {
+                    File.Copy(file, targetFile, true);
+                    try { File.Delete(file); } catch { /* temp file; harmless if it stays */ }
+                    file = targetFile;
+                }
 
                 object image = null;
                 if (a.ReturnImage)
@@ -130,7 +142,7 @@ namespace RevitMCPCommandSet.Tools.Export
             }
             finally
             {
-                if (!keep)
+                if (!keep || targetFile != null)
                 {
                     try { Directory.Delete(folder, true); }
                     catch { /* temp folder; harmless if left behind */ }

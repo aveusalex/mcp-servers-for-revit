@@ -26,6 +26,25 @@ test("near-miss enum values are mapped to the canonical value", () => {
   assert.equal(args.items[1].locationLine, "wallCenterline");
 });
 
+test("whole-number ids are accepted as strings or integers, whichever the schema wants", () => {
+  const s = {
+    type: "object",
+    properties: {
+      ids: { type: "array", items: { type: "integer" } },
+      refs: { type: "array", items: { type: "string" } },
+      one: { type: "string" },
+    },
+  };
+  const args = { ids: ["220132", 7], refs: [220133, "abc-uuid"], one: 5 };
+  normalizeEnums(args, s);
+  assert.deepEqual(args.ids, [220132, 7]);
+  assert.deepEqual(args.refs, ["220133", "abc-uuid"]);
+  assert.equal(args.one, "5");
+  const bad = { ids: ["12a"] };
+  normalizeEnums(bad, s);
+  assert.deepEqual(bad.ids, ["12a"]); // left for Ajv to reject
+});
+
 test("exact values, unknown values and ambiguous matches are left alone", () => {
   const args = { viewType: "3d", mode: "A-B" };
   normalizeEnums(args, schema);
