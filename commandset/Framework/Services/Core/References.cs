@@ -28,6 +28,7 @@ namespace RevitMCPCommandSet.Framework.Services
 
         public static ParameterRef ByName(string name) => new ParameterRef { Name = name };
 
+        [JsonIgnore]
         public bool IsEmpty => string.IsNullOrWhiteSpace(Guid) && string.IsNullOrWhiteSpace(BuiltIn) && string.IsNullOrWhiteSpace(Name);
 
         /// <summary>Parsed GUID, or throws INVALID_ARGUMENTS for a malformed one; null when no GUID was given.</summary>
