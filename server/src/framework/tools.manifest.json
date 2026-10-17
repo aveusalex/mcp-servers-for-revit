@@ -1,5 +1,605 @@
 {
   "version": 1,
-  "capabilityHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-  "tools": []
+  "capabilityHash": "0de97a646991c7f140652f94e20e06ce559f6c17047e15a2104d78a286104abb",
+  "tools": [
+    {
+      "name": "create_sheets",
+      "description": "Create sheets in batch (real or placeholder): number, name, title block (\"Family: Type\", default title block if omitted), extra parameters and optional views/schedules placed at x/y in mm. Numbers are checked for forbidden characters and collisions (also within the request) before anything is created; names are read back. One transaction (one Ctrl+Z); all or nothing unless continueOnError. Undo: Ctrl+Z, or delete the returned sheet ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "sheets",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Sheets to create, up to 200 per call.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "number": {
+                  "description": "Sheet number, unique in the document (e.g. \"A-101\").",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Sheet name (e.g. \"Planta Baixa - Térreo\").",
+                  "type": "string"
+                },
+                "titleBlock": {
+                  "description": "Title block type as \"Family: Type\", type name or id. Omit for the document's default title block; \"none\" for no title block.",
+                  "type": "string"
+                },
+                "placeholder": {
+                  "description": "Create a placeholder sheet (listed in sheet lists, not printed; no title block or views). Default false.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "parameters": {
+                  "description": "Extra sheet parameters by name, e.g. {\"Desenhado por\": \"AE\"}; same value rules as set_parameters.",
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "views": {
+                  "description": "Views or schedules to place on the new sheet.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "view": {
+                        "description": "View or schedule to place, by name or id.",
+                        "type": "string"
+                      },
+                      "x": {
+                        "description": "Centre of the viewport on the sheet, from the sheet origin (bottom-left of most title blocks). Unit: mm.",
+                        "type": "number",
+                        "x-unit": "mm"
+                      },
+                      "y": {
+                        "description": "Centre of the viewport on the sheet, from the sheet origin. Unit: mm.",
+                        "type": "number",
+                        "x-unit": "mm"
+                      }
+                    },
+                    "required": [
+                      "view",
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "number",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back every sheet of the call. true: failed sheets are skipped and listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "find_elements",
+      "description": "Find elements deterministically by category (any language: OST_Walls / Walls / Paredes), family, type, level, workset, view, bounding box in mm and parameter conditions where[] (eq, neq, contains, starts_with, ends_with, regex, gt/gte/lt/lte in wire units mm/m2/m3/deg, is_empty, not_empty), reading each parameter on the instance or its type. Returns ids, names and the requested fields, ordered by id, with an exact total and limit/offset paging (countOnly for just the count). Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "description": "Categories, in any language: OST_Walls, Walls or Paredes. Omit for all model categories.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "familyName": {
+            "description": "Family name (case and accents ignored).",
+            "type": "string"
+          },
+          "typeName": {
+            "description": "Type name, or \"Family: Type\" (case and accents ignored).",
+            "type": "string"
+          },
+          "level": {
+            "description": "Level name or id: only elements associated with that level.",
+            "type": "string"
+          },
+          "workset": {
+            "description": "Workset name or id (workshared models only).",
+            "type": "string"
+          },
+          "view": {
+            "description": "View name or id: only elements visible in that view.",
+            "type": "string"
+          },
+          "bbox": {
+            "description": "Only elements whose bounding box intersects this box, in mm.",
+            "type": "object",
+            "properties": {
+              "min": {
+                "description": "Lower corner.",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "z": {
+                    "description": "Z coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "z"
+                ],
+                "additionalProperties": false
+              },
+              "max": {
+                "description": "Upper corner.",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "z": {
+                    "description": "Z coordinate (project internal origin). Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "z"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "additionalProperties": false
+          },
+          "where": {
+            "description": "Parameter conditions, all must match (AND).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "parameter": {
+                  "description": "Parameter reference: {guid} | {builtIn} | {name}.",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "op": {
+                  "description": "Operator (default eq). Text compares ignore case and accents; numbers compare in wire units (mm, m2, m3, deg, %).",
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "neq",
+                    "contains",
+                    "not_contains",
+                    "starts_with",
+                    "ends_with",
+                    "regex",
+                    "gt",
+                    "gte",
+                    "lt",
+                    "lte",
+                    "is_empty",
+                    "not_empty"
+                  ],
+                  "default": "eq"
+                },
+                "value": {
+                  "description": "Value to compare with (not needed for is_empty / not_empty)."
+                },
+                "scope": {
+                  "description": "Where to read the parameter: auto (instance, then type; default), instance or type.",
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "instance",
+                    "type"
+                  ],
+                  "default": "auto"
+                }
+              },
+              "required": [
+                "parameter"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "fields": {
+            "description": "Parameters to return for each element (wire units), each {guid} | {builtIn} | {name}.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "guid": {
+                  "description": "Shared parameter GUID. Wins over builtIn and name.",
+                  "type": "string"
+                },
+                "builtIn": {
+                  "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "elementKind": {
+            "description": "instances (default) or types.",
+            "type": "string",
+            "enum": [
+              "instances",
+              "types"
+            ],
+            "default": "instances"
+          },
+          "countOnly": {
+            "description": "Return only the exact count (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "description": "Page size, 1-5000 (default 100).",
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "description": "Elements to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_element_parameters",
+      "description": "Read the parameters of one or more elements (instance and/or type), with metadata: name, builtIn, guid, storage type, data type, group, read-only flag, value in wire units (mm, m2, m3, deg, %; ElementId values as the referenced element's name, raw id in 'raw'), and Revit's display text. Use builtIn or guid from the result to reference a parameter unambiguously in set_parameters. Elements inside links are readable with \"linkInstanceId:elementId\". Paged by element. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "parameters",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "elementIds": {
+            "description": "Elements to read, as strings: element id (\"123456\"), UniqueId, or \"linkInstanceId:elementId\" for an element inside a Revit link. Type ids work too.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scope": {
+            "description": "instance = the element's own parameters; type = its type's; both = both (default).",
+            "type": "string",
+            "enum": [
+              "instance",
+              "type",
+              "both"
+            ],
+            "default": "both"
+          },
+          "parameters": {
+            "description": "Only these parameters, each {guid} | {builtIn} | {name}. Omit for all parameters.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "guid": {
+                  "description": "Shared parameter GUID. Wins over builtIn and name.",
+                  "type": "string"
+                },
+                "builtIn": {
+                  "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "includeReadOnly": {
+            "description": "Include read-only parameters (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "includeEmpty": {
+            "description": "Include parameters without a value (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "compact": {
+            "description": "Return only name/builtIn/guid/on/storageType/readOnly/value/unit per parameter (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "description": "Maximum number of elements returned (1-200, default 50).",
+            "type": "integer",
+            "default": 50
+          },
+          "offset": {
+            "description": "Number of elements to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "required": [
+          "elementIds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_parameters",
+      "description": "Write instance parameter values on 1..500 elements in one transaction (one Ctrl+Z). Reference parameters by guid, builtIn or name; numbers in wire units (mm, m2, m3, deg, %), ElementId parameters by id or name. Every write is read back: values Revit changed (formulas, rounding) come back as 'mismatch'. Atomic by default. Critical parameters (type, level, phase, workset, host) are blocked unless allowCritical. Type parameters are refused here: use set_type_parameters. Undo: Ctrl+Z, or send the returned revert[] back to this tool.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "parameters",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Writes to apply: one {elementId, parameter, value, unit?} per value. Up to 500 per call.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "elementId": {
+                  "description": "Element id or UniqueId, as a string.",
+                  "type": "string"
+                },
+                "parameter": {
+                  "description": "Parameter reference: {guid} | {builtIn} | {name} (resolved in that order).",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "value": {
+                  "description": "New value. Numbers in wire units (length mm, area m2, volume m3, angle deg, slope %); yes/no as true/false; ElementId parameters take an id or a name (level, phase, material, type); null clears text and ElementId values."
+                },
+                "unit": {
+                  "description": "Optional unit for this number instead of the wire default: m, cm, mm, ft, in, m2, ft2, m3, l, deg, rad, %, ratio, or internal (raw Revit value).",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "elementId",
+                "parameter",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "elementIds": {
+            "description": "Shortcut for the same value on several elements: element ids (strings), used with parameter + value instead of items.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parameter": {
+            "description": "Shortcut: the parameter to write on every element of elementIds.",
+            "type": "object",
+            "properties": {
+              "guid": {
+                "description": "Shared parameter GUID. Wins over builtIn and name.",
+                "type": "string"
+              },
+              "builtIn": {
+                "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                "type": "string"
+              },
+              "name": {
+                "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "value": {
+            "description": "Shortcut: the value to write on every element of elementIds (same rules as items[].value)."
+          },
+          "unit": {
+            "description": "Shortcut: optional unit override for value.",
+            "type": "string"
+          },
+          "atomic": {
+            "description": "true (default): all or nothing — any invalid item, refused value or read-back mismatch rolls the whole call back. false: valid items are written and the rest reported in items[] with their status.",
+            "type": "boolean",
+            "default": true
+          },
+          "allowCritical": {
+            "description": "Allow parameters that change what an element is or where it lives (type, levels and constraints, phases, workset, host) and one Mark on many elements. Default false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_type_parameters",
+      "description": "Write TYPE parameter values (affects every instance of the type; result reports instancesAffected). elementId may be a type id or an instance id (its type is used). Same rules as set_parameters: guid/builtIn/name references, wire units (mm, m2, m3, deg, %), read-back with 'mismatch', atomic by default, critical parameters blocked unless allowCritical. Needs human approval. Undo: Ctrl+Z, or send revert[] back to this tool.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "parameters",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Writes to apply: one {elementId, parameter, value, unit?} per value. Up to 500 per call.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "elementId": {
+                  "description": "Element id or UniqueId, as a string.",
+                  "type": "string"
+                },
+                "parameter": {
+                  "description": "Parameter reference: {guid} | {builtIn} | {name} (resolved in that order).",
+                  "type": "object",
+                  "properties": {
+                    "guid": {
+                      "description": "Shared parameter GUID. Wins over builtIn and name.",
+                      "type": "string"
+                    },
+                    "builtIn": {
+                      "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "value": {
+                  "description": "New value. Numbers in wire units (length mm, area m2, volume m3, angle deg, slope %); yes/no as true/false; ElementId parameters take an id or a name (level, phase, material, type); null clears text and ElementId values."
+                },
+                "unit": {
+                  "description": "Optional unit for this number instead of the wire default: m, cm, mm, ft, in, m2, ft2, m3, l, deg, rad, %, ratio, or internal (raw Revit value).",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "elementId",
+                "parameter",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "elementIds": {
+            "description": "Shortcut for the same value on several elements: element ids (strings), used with parameter + value instead of items.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parameter": {
+            "description": "Shortcut: the parameter to write on every element of elementIds.",
+            "type": "object",
+            "properties": {
+              "guid": {
+                "description": "Shared parameter GUID. Wins over builtIn and name.",
+                "type": "string"
+              },
+              "builtIn": {
+                "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                "type": "string"
+              },
+              "name": {
+                "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "value": {
+            "description": "Shortcut: the value to write on every element of elementIds (same rules as items[].value)."
+          },
+          "unit": {
+            "description": "Shortcut: optional unit override for value.",
+            "type": "string"
+          },
+          "atomic": {
+            "description": "true (default): all or nothing — any invalid item, refused value or read-back mismatch rolls the whole call back. false: valid items are written and the rest reported in items[] with their status.",
+            "type": "boolean",
+            "default": true
+          },
+          "allowCritical": {
+            "description": "Allow parameters that change what an element is or where it lives (type, levels and constraints, phases, workset, host) and one Mark on many elements. Default false.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ]
 }
