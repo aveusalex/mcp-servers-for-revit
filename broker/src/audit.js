@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { auditDir } from "./config.js";
+import { canonicalHash } from "./canonical.js";
 
 /**
  * Append-only audit log, one JSON object per line (JSONL), one file per day.
@@ -36,6 +37,19 @@ export class AuditLog {
       /* never throw from the audit path */
     }
   }
+}
+
+/**
+ * What to record for a command's params. By default only a hash of the
+ * canonical params (enough to match a call against a plan or a repeat,
+ * without leaking model data into the log); `full` keeps them verbatim.
+ *
+ * @param {any} params
+ * @param {"hash"|"full"} mode
+ */
+export function auditParams(params, mode = "hash") {
+  if (mode === "full") return { params: params ?? null };
+  return { paramsHash: canonicalHash(params ?? {}) };
 }
 
 /**

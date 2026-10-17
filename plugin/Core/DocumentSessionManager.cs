@@ -130,7 +130,31 @@ namespace revit_mcp_plugin.Core
             try
             {
                 if (doc == null) return null;
+                string baseId = BaseIdOf(doc);
+                if (baseId == null) return null;
 
+                // Copies of one file (or documents opened from the same template) share the base id. While two
+                // such documents are open, suffix each with a key of its own path so they stay distinct;
+                // otherwise commands for one could be routed to the other. Keep in sync with
+                // commandset RevitDocumentContext.DocIdOf.
+                foreach (Document other in doc.Application.Documents)
+                {
+                    if (other.IsLinked || other.Equals(doc)) continue;
+                    if (BaseIdOf(other) == baseId)
+                        return baseId + "~" + PathKey(doc);
+                }
+                return baseId;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string BaseIdOf(Document doc)
+        {
+            try
+            {
                 var creationGuid = doc.GetType().GetProperty("CreationGUID")?.GetValue(doc);
                 if (creationGuid is Guid guid && guid != Guid.Empty)
                     return guid.ToString("D");
@@ -141,6 +165,16 @@ namespace revit_mcp_plugin.Core
             catch
             {
                 return null;
+            }
+        }
+
+        private static string PathKey(Document doc)
+        {
+            string key = string.IsNullOrEmpty(doc.PathName) ? doc.Title ?? "" : doc.PathName.ToLowerInvariant();
+            using (var sha = System.Security.Cryptography.SHA1.Create())
+            {
+                byte[] hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(key));
+                return BitConverter.ToString(hash, 0, 4).Replace("-", "").ToLowerInvariant();
             }
         }
 

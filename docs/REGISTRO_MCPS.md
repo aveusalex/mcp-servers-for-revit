@@ -7,6 +7,7 @@ ou atualizar cada integração.
 | Nome exibido no cliente | Repositório/pacote | Computador ou VM | Finalidade | Pode escrever em RVT? | Dono técnico | Como desativar | Situação |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `revit-mcp` | `aveusalex/mcp-servers-for-revit` |  | Ponte local para Revit e inventário de vínculos | Sim, sob guardrails |  | Remover MCP + add-in |  |
+| `oc-mapa-ia` | MAPA para Revit 0.2.7 (Oficina Criativa, proprietário; build `37a44fc1d`) | DESKTOP-ROM29GI (Alex) | Ferramentas de interiores/marcenaria do MAPA; conector .NET 8 via WebSocket próprio (porta padrão 8765), independente do broker 8090 | Sim (licença MAPA IA) | Oficina Criativa / Alex | Instalador do MAPA → Desinstalar; remover a entrada `oc-mapa-ia` do `claude_desktop_config.json` | Instalado em 17/10/2026; aguardando aceite do EULA e login |
 | `pyrevit` |  |  |  |  |  |  |  |
 | `dynamo` |  |  |  |  |  |  |  |
 | `mcp-original` |  |  |  |  |  |  | Desativar antes de usar este fork |

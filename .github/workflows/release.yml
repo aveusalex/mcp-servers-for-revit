@@ -22,10 +22,12 @@ jobs:
         with:
           node-version: 18
 
-      - name: Setup .NET 8
+      - name: Setup .NET 8 and .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
@@ -44,12 +46,6 @@ jobs:
       # The commandset's DeployCommandSet target automatically copies
       # its output into the plugin's AddIn layout.
       # ---------------------------------------------------------------
-      - name: Build Revit 2020 (.NET Framework 4.8)
-        run: msbuild mcp-servers-for-revit.sln -p:Configuration="Release R20" -restore
-
-      - name: Build Revit 2021 (.NET Framework 4.8)
-        run: msbuild mcp-servers-for-revit.sln -p:Configuration="Release R21" -restore
-
       - name: Build Revit 2022 (.NET Framework 4.8)
         run: msbuild mcp-servers-for-revit.sln -p:Configuration="Release R22" -restore
 
@@ -65,6 +61,9 @@ jobs:
       - name: Build Revit 2026 (.NET 8)
         run: dotnet build mcp-servers-for-revit.sln -c "Release R26"
 
+      - name: Build Revit 2027 (.NET 10)
+        run: dotnet build mcp-servers-for-revit.sln -c "Release R27"
+
       # ---------------------------------------------------------------
       # Create Release Assets
       # The AddIn output already contains the complete deployable layout
@@ -77,13 +76,12 @@ jobs:
           New-Item -ItemType Directory -Force -Path $outputDir
 
           $revitVersions = @(
-            @{ Config = "Release R20"; Year = "2020" },
-            @{ Config = "Release R21"; Year = "2021" },
             @{ Config = "Release R22"; Year = "2022" },
             @{ Config = "Release R23"; Year = "2023" },
             @{ Config = "Release R24"; Year = "2024" },
             @{ Config = "Release R25"; Year = "2025" },
-            @{ Config = "Release R26"; Year = "2026" }
+            @{ Config = "Release R26"; Year = "2026" },
+            @{ Config = "Release R27"; Year = "2027" }
           )
 
           foreach ($rv in $revitVersions) {

@@ -208,7 +208,6 @@ namespace RevitMCPCommandSet.Services
                     Message = $"Failed to create grids: {ex.Message}",
                     Response = null
                 };
-                TaskDialog.Show("Error", $"Failed to create grids: {ex.Message}");
             }
             finally
             {

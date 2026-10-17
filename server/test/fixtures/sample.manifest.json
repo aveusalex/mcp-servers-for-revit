@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "capabilityHash": "5aab61f14badc88324415919597b545b8b4f392aa94dacaf626ddb877c571d97",
+  "tools": [
+    {
+      "name": "sample_find_elements",
+      "description": "Find elements by category in the target document. Read-only; returns ids and names, paged.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "query",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "description": "Categories to search, by OST_ name, English name or localized name.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "OST_Walls",
+                "OST_Doors",
+                "OST_Windows"
+              ]
+            }
+          },
+          "limit": {
+            "description": "Maximum number of elements to return.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "includeTypes": {
+            "description": "Also return element types.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "sample_move_elements",
+      "description": "Move elements by an offset in millimetres. Runs in one transaction; undo with Ctrl+Z in Revit.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "editing",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "elementIds": {
+            "description": "Ids of the elements to move.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "offset": {
+            "description": "Translation to apply.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "description": "Offset along X. Unit: mm.",
+                "type": "number",
+                "x-unit": "mm"
+              },
+              "y": {
+                "description": "Offset along Y. Unit: mm.",
+                "type": "number",
+                "x-unit": "mm"
+              }
+            },
+            "additionalProperties": false
+          },
+          "rotation": {
+            "description": "Rotation about the element origin. Unit: deg.",
+            "type": "number",
+            "minimum": -360,
+            "maximum": 360,
+            "x-unit": "deg"
+          },
+          "alignment": {
+            "description": "Reference line used for walls.",
+            "type": "string",
+            "enum": [
+              "Center",
+              "Exterior",
+              "Interior"
+            ]
+          },
+          "tags": {
+            "description": "Free-form tags stored in the audit log.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "extra": {
+            "description": "Opaque payload forwarded as-is.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "elementIds",
+          "offset"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "sample_select_elements",
+      "description": "Select elements in the active view. Needs the target document to be the active one.",
+      "kind": "ui",
+      "risk": "none",
+      "toolset": "core",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    }
+  ]
+}

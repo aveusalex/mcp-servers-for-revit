@@ -4,6 +4,17 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { runWithExplicitDocument } from "../utils/targeting.js";
+import { legacyCallScope } from "../utils/ConnectionManager.js";
+import {
+  installFaithfulToolListing,
+  isExposed,
+  legacyKind,
+  LEGACY_TOOLSET,
+  policyFromEnv,
+  registerFrameworkTools,
+  type ExposurePolicy,
+  type FrameworkOptions,
+} from "../framework/index.js";
 
 /**
  * Optional per-call document selector added to every tool. Accepts a docId
@@ -28,10 +39,27 @@ const documentParam = z
  * This gives multi-document targeting to all 23 existing tools without editing
  * any of them. Tools that never touch Revit simply ignore the value.
  */
-function installDocumentParam(server: McpServer): void {
+function installDocumentParam(
+  server: McpServer,
+  policy: ExposurePolicy,
+  frameworkNames: Set<string>
+): void {
   const original = server.tool.bind(server) as (...args: any[]) => any;
 
   (server as any).tool = (...args: any[]) => {
+    const name = args[0];
+    if (typeof name === "string") {
+      // A framework (manifest) tool with the same name replaces the legacy one.
+      if (frameworkNames.has(name)) {
+        console.error(`Legacy tool ${name} skipped: replaced by the framework tool of the same name.`);
+        return undefined;
+      }
+      // REVIT_MCP_TOOLSETS / REVIT_MCP_READ_ONLY apply to legacy tools too (toolset "legacy").
+      if (!isExposed({ name, toolset: LEGACY_TOOLSET, kind: legacyKind(name) }, policy)) {
+        return undefined;
+      }
+    }
+
     // Supported shapes:
     //   tool(name, description, shape, cb)
     //   tool(name, description, cb)
@@ -58,7 +86,11 @@ function installDocumentParam(server: McpServer): void {
         forwarded = { ...toolArgs };
         delete forwarded.document;
       }
-      return runWithExplicitDocument(document, () => cb(forwarded, extra));
+      // legacyCallScope: broker guidance (approval hint, job polling) is folded
+      // into what these tools print — see ConnectionManager.
+      return legacyCallScope.run(true, () =>
+        runWithExplicitDocument(document, () => cb(forwarded, extra))
+      );
     };
 
     const rebuilt = hasShape
@@ -68,9 +100,17 @@ function installDocumentParam(server: McpServer): void {
   };
 }
 
-export async function registerTools(server: McpServer) {
-  // Every tool registered after this call gains the optional `document` arg.
-  installDocumentParam(server);
+export async function registerTools(server: McpServer, options: FrameworkOptions = {}) {
+  // Framework tools advertise their manifest JSON Schema verbatim; must be in place before any registration.
+  installFaithfulToolListing(server);
+  const policy = options.policy ?? policyFromEnv();
+
+  // Manifest tools (generated from [McpTool] classes) and server-only tools go first, so a framework tool can
+  // take over a legacy name.
+  const frameworkNames = registerFrameworkTools(server, { ...options, policy });
+
+  // Every legacy tool registered after this call gains the optional `document` arg.
+  installDocumentParam(server, policy, frameworkNames);
 
   // 获取当前文件的目录路径
   const __filename = fileURLToPath(import.meta.url);
@@ -101,12 +141,12 @@ export async function registerTools(server: McpServer) {
 
       if (registerFunctionName) {
         module[registerFunctionName](server);
-        console.error(`已注册工具: ${file}`);
+        console.error(`Registered tool: ${file}`);
       } else {
-        console.warn(`警告: 在文件 ${file} 中未找到注册函数`);
+        console.warn(`Warning: no register function found in ${file}`);
       }
     } catch (error) {
-      console.error(`注册工具 ${file} 时出错:`, error);
+      console.error(`Error registering tool ${file}:`, error);
     }
   }
 }

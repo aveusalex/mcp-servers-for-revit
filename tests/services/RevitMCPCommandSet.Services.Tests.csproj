@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+      Pure-logic tests for commandset/Framework/Services (Contract C). No Revit references: the decision logic lives
+      in commandset/Framework/Services/Core/*.cs, which only use the BCL and Newtonsoft.Json, and is compiled in here
+      as linked source. Run: dotnet test tests/services
+    -->
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <NoWarn>$(NoWarn);CS8632</NoWarn>
+        <RootNamespace>RevitMCPCommandSet.Services.Tests</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="..\..\commandset\Framework\Services\Core\**\*.cs" Link="Core\%(RecursiveDir)%(Filename)%(Extension)" />
+        <Compile Include="..\..\commandset\Framework\ToolException.cs" Link="Framework\ToolException.cs" />
+        <!-- Millwork layout (pure geometry of create_millwork_module). -->
+        <Compile Include="..\..\commandset\Framework\Schema\SchemaAttributes.cs" Link="Framework\SchemaAttributes.cs" />
+        <Compile Include="..\..\commandset\Tools\Architecture\Support\ArchArgs.cs" Link="Millwork\ArchArgs.cs" />
+        <Compile Include="..\..\commandset\Tools\Millwork\Support\MillworkDesign.cs" Link="Millwork\MillworkDesign.cs" />
+        <Compile Include="..\..\commandset\Tools\Millwork\Support\MillworkLayout.cs" Link="Millwork\MillworkLayout.cs" />
+        <!-- OBJ/STL reader of import_mesh. -->
+        <Compile Include="..\..\commandset\Tools\Families\Support\MeshFile.cs" Link="Families\MeshFile.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="xunit" Version="2.9.2" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    </ItemGroup>
+
+</Project>
+

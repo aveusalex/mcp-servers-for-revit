@@ -52,17 +52,87 @@ namespace RevitMCPCommandSet.Utils
             return uiApp?.ActiveUIDocument?.Document;
         }
 
+        /// <summary>
+        /// The open, non-linked document whose docId is <paramref name="docId"/>, or null. Unlike
+        /// <see cref="ResolveDocument(UIApplication)"/> it never falls back to the active document, so a call aimed
+        /// at a document that was closed can't land on another one. Used by the tool framework, which captures
+        /// the docId when the request is queued.
+        /// </summary>
+        public static Document TryResolveDocument(UIApplication uiApp, string docId)
+        {
+            if (string.IsNullOrEmpty(docId) || uiApp == null) return null;
+            foreach (Document doc in uiApp.Application.Documents)
+            {
+                if (doc.IsLinked) continue;
+                try
+                {
+                    if (DocIdOf(doc) == docId)
+                        return doc;
+                }
+                catch
+                {
+                    // documents without ProjectInformation; skip
+                }
+            }
+            return null;
+        }
+
+        /// <summary>The broker docId of a document (same rule as the plugin), or null when it has none.</summary>
+        public static string GetDocId(Document doc)
+        {
+            if (doc == null) return null;
+            try
+            {
+                return DocIdOf(doc);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         /// <summary>docId currently requested by the broker, or null.</summary>
         public static string CurrentTargetDocId =>
             AppDomain.CurrentDomain.GetData(TargetKey) as string;
 
+        /// <summary>
+        /// Same rule as the plugin's DocumentSessionManager.DocIdOf: the base id (CreationGUID, else
+        /// ProjectInformation.UniqueId), suffixed with a path key while another open document shares it.
+        /// </summary>
         private static string DocIdOf(Document doc)
+        {
+            string baseId = BaseIdOf(doc);
+            if (baseId == null) return null;
+
+            foreach (Document other in doc.Application.Documents)
+            {
+                if (other.IsLinked || other.Equals(doc)) continue;
+                string otherBase;
+                try { otherBase = BaseIdOf(other); }
+                catch { continue; }
+                if (otherBase == baseId)
+                    return baseId + "~" + PathKey(doc);
+            }
+            return baseId;
+        }
+
+        private static string BaseIdOf(Document doc)
         {
             var creationGuid = doc.GetType().GetProperty("CreationGUID")?.GetValue(doc);
             if (creationGuid is Guid guid && guid != Guid.Empty)
                 return guid.ToString("D");
 
             return doc.ProjectInformation?.UniqueId;
+        }
+
+        private static string PathKey(Document doc)
+        {
+            string key = string.IsNullOrEmpty(doc.PathName) ? doc.Title ?? "" : doc.PathName.ToLowerInvariant();
+            using (var sha = System.Security.Cryptography.SHA1.Create())
+            {
+                byte[] hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(key));
+                return BitConverter.ToString(hash, 0, 4).Replace("-", "").ToLowerInvariant();
+            }
         }
     }
 }

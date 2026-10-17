@@ -61,12 +61,13 @@ plugins. Eles só podem coexistir com responsabilidade bem definida.
 
 ## 4. Pré-requisitos
 
-- Autodesk Revit 2020 a 2026 instalado e licenciado. Os exemplos usam 2025.
+- Autodesk Revit 2022 a 2027 instalado e licenciado (versões anteriores a 2022 não são suportadas). Os exemplos usam 2025.
 - Node.js **20 ou superior** (node --version).
 - Git para Windows.
 - Visual Studio 2022 com desenvolvimento desktop .NET, ou SDKs equivalentes.
-- Revit 2020–2024: .NET Framework 4.8 Developer Pack.
+- Revit 2022–2024: .NET Framework 4.8 Developer Pack.
 - Revit 2025–2026: .NET 8 SDK.
+- Revit 2027: .NET 10 SDK.
 - Permissão para gravar em %APPDATA%\Autodesk\Revit\Addins\<ano>\.
 
 Use uma pasta estável, fora de OneDrive/Dropbox, como
@@ -92,7 +93,7 @@ dotnet build .\plugin\RevitMCPPlugin.csproj -c "Debug R25"
 dotnet build .\commandset\RevitMCPCommandSet.csproj -c "Debug R25"
 ~~~
 
-Troque R25 por R20 até R26 conforme a versão instalada. O build Debug copia o
+Troque R25 por R22 até R27 conforme a versão instalada. O build Debug copia o
 manifesto, plugin e command set para:
 
 ~~~text
