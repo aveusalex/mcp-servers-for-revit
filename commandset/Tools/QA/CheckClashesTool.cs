@@ -52,10 +52,10 @@ namespace RevitMCPCommandSet.Tools.QA
         public double Tolerance { get; set; }
 
         [JsonProperty("minVolume")]
-        [Description("solid mode: ignore intersections smaller than this (default 0.000001 m3 = 1 cm3).")]
+        [Description("solid mode: ignore intersections smaller than this (default 0.0001 m3 = 100 cm3; 0 keeps every touch).")]
         [Unit("m3")]
-        [DefaultValue(0.000001)]
-        public double MinVolume { get; set; } = 0.000001;
+        [DefaultValue(0.0001)]
+        public double MinVolume { get; set; } = 0.0001;
 
         [JsonProperty("ignoreJoined")]
         [Description("Skip pairs joined with Join Geometry and host/hosted pairs (door in its wall). Default true.")]

@@ -1,7 +1,500 @@
 {
   "version": 1,
-  "capabilityHash": "8db75ff9ce471dffe0451b454ceca381a398c7a03a1b5d18157a1e2f1fba1bcd",
+  "capabilityHash": "c2d425731b0265f7a364c01f6e5a023a46a30d4171d74fff9f9ea905b392322b",
   "tools": [
+    {
+      "name": "audit_families",
+      "description": "Audit the loaded families: unused ones (Purge Unused list), in-place families, near-duplicate names (\"Porta 80\" vs \"Porta 80 2\" / \"(1)\" / \"copy\"), families with too many types, and optionally geometric complexity (solids/faces of one sample instance per family, within timeBudgetMs). Counts per section and family ids/names. Read-only: use purge_unused to remove.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 180,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sections": {
+            "description": "What to audit (default unused, inPlace, duplicateNames, manyTypes): unused, inPlace, duplicateNames, manyTypes, complexity (slow).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "unused",
+                "inPlace",
+                "duplicateNames",
+                "manyTypes",
+                "complexity"
+              ]
+            }
+          },
+          "categories": {
+            "description": "Only families of these categories (any language). Default: all loadable families.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "typeCountThreshold": {
+            "description": "manyTypes: report families with more types than this, 1-1000 (default 30).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 30
+          },
+          "limit": {
+            "description": "Items listed per section, 1-2000 (default 100); counts are always complete.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 100
+          },
+          "timeBudgetMs": {
+            "description": "complexity: stop sampling after this many milliseconds, 1000-300000 (default 20000).",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 300000,
+            "default": 20000
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "audit_sheets_views",
+      "description": "Audit sheets and views: views and schedules not placed on any sheet (templates, dependent working views and excludeViewNames ignored), schedules with no rows, sheets with no views, sheets without a title block, and sheets missing required parameters (drawn by, checked by, issue date by default). Counts per section plus ids/names. Read-only: nothing is deleted.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sections": {
+            "description": "What to audit (default all): unplacedViews, unplacedSchedules, emptySchedules, emptySheets, sheetsWithoutTitleBlock, sheetParameters.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "unplacedViews",
+                "unplacedSchedules",
+                "emptySchedules",
+                "emptySheets",
+                "sheetsWithoutTitleBlock",
+                "sheetParameters"
+              ]
+            }
+          },
+          "requiredSheetParameters": {
+            "description": "Sheet parameters that must have a value (e.g. \"Desenhado por\", {builtIn: SHEET_DRAWN_BY}). Default: drawn by, checked by, issue date.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "guid": {
+                  "description": "Shared parameter GUID. Wins over builtIn and name.",
+                  "type": "string"
+                },
+                "builtIn": {
+                  "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "excludeViewNames": {
+            "description": "Regex: views whose name matches are ignored (working views), e.g. \"^(WORK|TRAB|x_)\".",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Items listed per section, 1-2000 (default 100); counts are always complete.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 100
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "check_clashes",
+      "description": "Detect clashes between set A and set B (or A against itself): each set by categories, explicit element ids and/or a Revit link. solid mode computes the real intersection volume (m3) and centre (mm) of each clashing pair; bbox mode only compares bounding boxes. Joined and host/hosted pairs are skipped by default. Bounded by maxPairs and timeBudgetMs (truncated says so). Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 300,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "setA": {
+            "description": "First set of elements.",
+            "type": "object",
+            "properties": {
+              "categories": {
+                "description": "Categories in any language (OST_Ducts / Ducts / Dutos). With link, taken from the linked model.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "elementIds": {
+                "description": "Explicit elements: id, UniqueId or \"linkInstanceId:elementId\" for linked elements.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "link": {
+                "description": "Revit link instance id or name: take the categories from that linked model instead of the host.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "setB": {
+            "description": "Second set. Omit to check set A against itself.",
+            "type": "object",
+            "properties": {
+              "categories": {
+                "description": "Categories in any language (OST_Ducts / Ducts / Dutos). With link, taken from the linked model.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "elementIds": {
+                "description": "Explicit elements: id, UniqueId or \"linkInstanceId:elementId\" for linked elements.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "link": {
+                "description": "Revit link instance id or name: take the categories from that linked model instead of the host.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "mode": {
+            "description": "solid (default): real intersection volume of the solids; bbox: bounding boxes only (fast, many false positives).",
+            "type": "string",
+            "enum": [
+              "solid",
+              "bbox"
+            ],
+            "default": "solid"
+          },
+          "tolerance": {
+            "description": "Grow the bounding boxes by this much before comparing (bbox mode and pre-filter). Default 0. Unit: mm.",
+            "type": "number",
+            "x-unit": "mm",
+            "default": 0
+          },
+          "minVolume": {
+            "description": "solid mode: ignore intersections smaller than this (default 0.0001 m3 = 100 cm3; 0 keeps every touch).",
+            "type": "number",
+            "x-unit": "m3",
+            "default": 0.0001
+          },
+          "ignoreJoined": {
+            "description": "Skip pairs joined with Join Geometry and host/hosted pairs (door in its wall). Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "maxPairs": {
+            "description": "Stop after this many clashes, 1-5000 (default 200).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 200
+          },
+          "maxElementsPerSet": {
+            "description": "Refuse sets larger than this, 1-50000 (default 10000); narrow the categories or use a link/elementIds.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50000,
+            "default": 10000
+          },
+          "timeBudgetMs": {
+            "description": "Stop after this many milliseconds and return what was found (truncated), 1000-600000 (default 30000).",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 600000,
+            "default": 30000
+          }
+        },
+        "required": [
+          "setA"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "check_levels_grids",
+      "description": "Check levels and grids: levels at the same elevation (within tolerance, mm), building-story levels without a floor plan (or ceiling plan), duplicated or overlapping grids (same line/arc within tolerance) and straight grids slightly off the orthogonal axes. Lists every level with its elevation in mm. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 60,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tolerance": {
+            "description": "Distance under which two levels or grids count as duplicated/overlapping (default 1 mm).",
+            "type": "number",
+            "x-unit": "mm",
+            "default": 1
+          },
+          "requireFloorPlan": {
+            "description": "Report building-story levels with no floor plan (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "requireCeilingPlan": {
+            "description": "Report building-story levels with no ceiling plan (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "offAxisAngle": {
+            "description": "Report straight grids that are off the orthogonal axes by more than 0.001 deg but less than this (default 1 deg): usually drawing mistakes.",
+            "type": "number",
+            "x-unit": "deg",
+            "default": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "check_naming",
+      "description": "Check view names, sheet numbers, level names and family type names against the office naming convention (read from knowledge/nomenclatura.md and folhas.md 'Formato:' lines, or explicit regexes in patterns) and for hygiene problems (\"Copy\"/\"Cópia\"/\"(2)\" leftovers, double or trailing spaces). Returns the rules used and offending names with the problems and a cleaned-up suggestion when one is obvious. Read-only: rename with the renaming tools.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 60,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kinds": {
+            "description": "What to check (default views, sheets, levels): views, sheets, levels, types.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "views",
+                "sheets",
+                "levels",
+                "types"
+              ]
+            }
+          },
+          "patterns": {
+            "description": "Override the convention with explicit regexes. Default: the office convention in knowledge/nomenclatura.md and folhas.md (REVIT_MCP_KNOWLEDGE_DIR or Documents\\RevitMCP\\knowledge), else hygiene checks only.",
+            "type": "object",
+            "properties": {
+              "views": {
+                "description": "Regex every view name must match.",
+                "type": "string"
+              },
+              "sheets": {
+                "description": "Regex every sheet number must match.",
+                "type": "string"
+              },
+              "levels": {
+                "description": "Regex every level name must match.",
+                "type": "string"
+              },
+              "types": {
+                "description": "Regex every family type name must match.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "limit": {
+            "description": "Offending names listed per kind, 1-2000 (default 100); counts are always complete.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 100
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "check_required_parameters",
+      "description": "Check parameter rules per category: required parameters that are empty, values that must be unique (duplicate door/window Marks, room Numbers) and values that must match a regex. Without rules it checks the defaults (doors/windows: unique Mark; rooms: Name and unique Number). Returns violation groups with counts and element ids; fix them with set_parameters. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rules": {
+            "description": "Rules to check. Omit for the defaults: doors and windows need a unique Mark; rooms need a Name and a unique Number.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "categories": {
+                  "description": "Categories the rule applies to, any language (OST_Doors / Doors / Portas).",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "required": {
+                  "description": "Parameters that must have a value (instance first, then type).",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "guid": {
+                        "description": "Shared parameter GUID. Wins over builtIn and name.",
+                        "type": "string"
+                      },
+                      "builtIn": {
+                        "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                        "type": "string"
+                      },
+                      "name": {
+                        "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "unique": {
+                  "description": "Parameters whose non-empty values must be unique within each category (e.g. Mark, room Number).",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "guid": {
+                        "description": "Shared parameter GUID. Wins over builtIn and name.",
+                        "type": "string"
+                      },
+                      "builtIn": {
+                        "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                        "type": "string"
+                      },
+                      "name": {
+                        "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "patterns": {
+                  "description": "Parameters whose values must match a regex.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "parameter": {
+                        "description": "Parameter to check: {guid} | {builtIn} | {name} or a plain name.",
+                        "type": "object",
+                        "properties": {
+                          "guid": {
+                            "description": "Shared parameter GUID. Wins over builtIn and name.",
+                            "type": "string"
+                          },
+                          "builtIn": {
+                            "description": "BuiltInParameter enum name, e.g. ALL_MODEL_INSTANCE_COMMENTS. Language-neutral.",
+                            "type": "string"
+                          },
+                          "name": {
+                            "description": "Parameter name as shown in Revit (in Revit's language). Fails with AMBIGUOUS_PARAMETER if two parameters share it.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "regex": {
+                        "description": "Regular expression the (non-empty) value must match, e.g. \"^P\\\\d{2}$\".",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "view": {
+            "description": "Only elements visible in this view (name or id). Default: the whole model.",
+            "type": "string"
+          },
+          "maxItemsPerGroup": {
+            "description": "Element ids listed per violation group, 1-1000 (default 50); counts are always complete.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "compute_room_finishes",
+      "description": "Compute finishes per room: floor, wall and ceiling areas in m2 grouped by the material of the bounding element's face and its type (from Revit's room geometry, finish faces), plus room area (m2) and perimeter (mm) for skirting, and totals per material for the page. Openings are not deducted beyond what Revit's room geometry already excludes. Rooms that are not enclosed are listed with the error. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 300,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "roomIds": {
+            "description": "Rooms to compute. Omit to use every placed room (optionally of one level).",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "level": {
+            "description": "Only rooms of this level (name or id).",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Rooms per page, 1-500 (default 100).",
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "description": "Rooms to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     {
       "name": "create_sheets",
       "description": "Create sheets in batch (real or placeholder): number, name, title block (\"Family: Type\", default title block if omitted), extra parameters and optional views/schedules placed at x/y in mm. Numbers are checked for forbidden characters and collisions (also within the request) before anything is created; names are read back. One transaction (one Ctrl+Z); all or nothing unless continueOnError. Undo: Ctrl+Z, or delete the returned sheet ids.",
@@ -767,6 +1260,96 @@
       }
     },
     {
+      "name": "find_undimensioned_elements",
+      "description": "List the elements of some categories visible in a view that no dimension in that view references (default categories: doors, windows and walls when none are given). Only dimensions in that view count; references to grids or levels don't count as dimensioning the element. Returns counts per category and ids with the element centre in mm, paged. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View name or id (plan, section, elevation or 3D).",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Categories to check, any language (OST_Doors / Doors / Portas). Default: doors, windows and rooms (find_untagged_elements) or doors, windows and walls (find_undimensioned_elements).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "countOnly": {
+            "description": "Only return the counts (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "description": "Elements per page, 1-5000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Elements to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "required": [
+          "view"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "find_untagged_elements",
+      "description": "List the elements of some categories (default doors, windows, rooms) visible in a view that have no tag in that view (element tags, room/space/area tags; tags of linked elements are ignored). Returns counts per category and ids with the element centre in mm, paged. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View name or id (plan, section, elevation or 3D).",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Categories to check, any language (OST_Doors / Doors / Portas). Default: doors, windows and rooms (find_untagged_elements) or doors, windows and walls (find_undimensioned_elements).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "countOnly": {
+            "description": "Only return the counts (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "description": "Elements per page, 1-5000 (default 200).",
+            "type": "integer",
+            "default": 200
+          },
+          "offset": {
+            "description": "Elements to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "required": [
+          "view"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_element_parameters",
       "description": "Read the parameters of one or more elements (instance and/or type), with metadata: name, builtIn, guid, storage type, data type, group, read-only flag, value in wire units (mm, m2, m3, deg, %; ElementId values as the referenced element's name, raw id in 'raw'), and Revit's display text. Use builtIn or guid from the result to reference a parameter unambiguously in set_parameters. Elements inside links are readable with \"linkInstanceId:elementId\". Paged by element. Read-only.",
       "kind": "read",
@@ -846,6 +1429,93 @@
         "required": [
           "elementIds"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_model_health",
+      "description": "Model check-up: score 0-100 and grade A-F from warnings, imported (not linked) CAD, in-place families, model groups, views not on sheets, detail lines, unplaced/unenclosed rooms, file size and (deep: true) purgeable families/types. Returns every metric, the penalty it cost and prioritized findings with the fix and the tool to use next (get_model_warnings, purge_unused, audit_sheets_views, audit_families...). Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 180,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "deep": {
+            "description": "Also count purgeable families/types (slower on big models). Default false.",
+            "type": "boolean",
+            "default": false
+          },
+          "topN": {
+            "description": "How many top warning types to show, 0-20 (default 5).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20,
+            "default": 5
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_model_warnings",
+      "description": "Summarize the model's warnings (Review Warnings) grouped by warning type - the language-neutral FailureDefinitionId, so pt-BR and English texts group the same - or by category. Each group has count, distinct elements, the text in Revit's language, example element ids and, for common types, a suggested fix. Largest groups first, paged. Read-only.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": true,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "groupBy": {
+            "description": "definition (default): one group per warning type (FailureDefinitionId, language-neutral); category: by the category of the first failing element.",
+            "type": "string",
+            "enum": [
+              "definition",
+              "category"
+            ],
+            "default": "definition"
+          },
+          "severity": {
+            "description": "warning, error or all (default).",
+            "type": "string",
+            "enum": [
+              "warning",
+              "error",
+              "all"
+            ],
+            "default": "all"
+          },
+          "categories": {
+            "description": "Only warnings involving elements of these categories (any language: OST_Walls / Walls / Paredes).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxExamplesPerGroup": {
+            "description": "Example warnings (with element ids) per group, 0-50 (default 5).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50,
+            "default": 5
+          },
+          "limit": {
+            "description": "Groups per page, 1-500 (default 50), largest groups first.",
+            "type": "integer",
+            "default": 50
+          },
+          "offset": {
+            "description": "Groups to skip, for paging (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
         "additionalProperties": false
       }
     },
@@ -1044,6 +1714,71 @@
           "operation",
           "linkTypeIds"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "purge_unused",
+      "description": "Find and (with apply: true) delete unused families, types, materials and patterns - the same list as Revit's Purge Unused on 2024+ (older versions: families and types only). By default it only lists (apply false); dryRun: true previews the exact deletions with real ids. exclude[] protects names by regex. Repeats up to 'passes' times to catch cascades. Undo: Ctrl+Z (one transaction).",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "qa",
+      "batchable": false,
+      "idempotent": false,
+      "timeoutSeconds": 600,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "targets": {
+            "description": "What to purge (default families, types, materials): families, types, materials, fillPatterns, linePatterns, viewTemplates, other.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "families",
+                "types",
+                "materials",
+                "fillPatterns",
+                "linePatterns",
+                "viewTemplates",
+                "other"
+              ]
+            }
+          },
+          "apply": {
+            "description": "false (default): only list what is unused (nothing is deleted). true: delete it (one Ctrl+Z undoes the whole purge).",
+            "type": "boolean",
+            "default": false
+          },
+          "exclude": {
+            "description": "Regular expressions on the element name; matching elements are never purged (e.g. \"^Carimbo\", \"_PADRAO$\").",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxElements": {
+            "description": "Delete at most this many elements in one call, 1-10000 (default 2000).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 2000
+          },
+          "passes": {
+            "description": "apply only: repeat the purge up to this many times, 1-5 (default 3), since deleting a family can free its nested families and materials.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "default": 3
+          },
+          "listLimit": {
+            "description": "Maximum items listed in the result, 0-2000 (default 300); counts are always complete.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 300
+          }
+        },
         "additionalProperties": false
       }
     },
@@ -1313,6 +2048,48 @@
             "default": false
           }
         },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "warnings_delta",
+      "description": "Track warnings across a work session: operation baseline saves the current warnings (per document, to a file in Documents\\RevitMCP\\qa), and operation delta reports which warnings are new and which were resolved since then, grouped by warning type, with element ids. Run baseline before a change and delta after it to prove the change introduced no warnings. Does not change the model.",
+      "kind": "read",
+      "risk": "none",
+      "toolset": "qa",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "baseline: snapshot the current warnings to a file (replaces the previous baseline of that name); delta: compare the current warnings with the baseline.",
+            "type": "string",
+            "enum": [
+              "baseline",
+              "delta"
+            ]
+          },
+          "baselineName": {
+            "description": "Name of the baseline (letters, digits, - and _; default \"default\"). Baselines are per document.",
+            "type": "string",
+            "default": "default"
+          },
+          "limit": {
+            "description": "Delta: new/resolved warnings listed per page, 1-1000 (default 100).",
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "description": "Delta: items to skip in the new/resolved lists (default 0).",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "required": [
+          "operation"
+        ],
         "additionalProperties": false
       }
     }
