@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "b77b1ea3478a21439acd74271c020ee941e08cd65e111bd2b2bd8c97826ed441",
+  "capabilityHash": "b32819b8f249b51a42999b0625e53dddfbe330010298f671eeed84a234e8ce49",
   "tools": [
     {
       "name": "create_area",
@@ -297,6 +297,227 @@
       }
     },
     {
+      "name": "create_countertop",
+      "description": "Create a stone countertop (tampo) from a plan outline or rectangle in mm: top surface height above the level, thickness, rectangular cut-outs (sink/cooktop), optional front apron (saia) and backsplash (rodabanca) on chosen edges. method floor uses a named floor type (thickness must match) so it schedules as a floor; method directshape builds a Generic Model solid with a material. Returns ids, area (m²) and volume (m³). One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "points": {
+            "description": "Outline of the countertop in plan, mm (give points or rectangle). Edge i runs from point i to point i+1 (the last edge closes the outline).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "description": "X coordinate in mm from the project's internal origin.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "y": {
+                  "description": "Y coordinate in mm from the project's internal origin.",
+                  "type": "number",
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "rectangle": {
+            "description": "Rectangular outline. Edges: 0 = from the origin along width (front), 1 = right side, 2 = back, 3 = left side (before rotation).",
+            "type": "object",
+            "properties": {
+              "origin": {
+                "description": "Corner the rectangle starts from (before rotation), in mm.",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "X coordinate in mm from the project's internal origin.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Y coordinate in mm from the project's internal origin.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              },
+              "width": {
+                "description": "Size along X (before rotation), in mm.",
+                "type": "number",
+                "minimum": 1,
+                "maximum": 1000000,
+                "x-unit": "mm"
+              },
+              "depth": {
+                "description": "Size along Y (before rotation), in mm.",
+                "type": "number",
+                "minimum": 1,
+                "maximum": 1000000,
+                "x-unit": "mm"
+              },
+              "rotation": {
+                "description": "Counter-clockwise rotation around the origin corner, in degrees. Default 0.",
+                "type": "number",
+                "x-unit": "deg",
+                "default": 0
+              }
+            },
+            "required": [
+              "origin",
+              "width",
+              "depth"
+            ],
+            "additionalProperties": false
+          },
+          "level": {
+            "description": "Level by name or id.",
+            "type": "string"
+          },
+          "height": {
+            "description": "Height of the top surface above the level in mm (e.g. 900 kitchen, 800 bathroom).",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000,
+            "x-unit": "mm"
+          },
+          "thickness": {
+            "description": "Stone thickness in mm (e.g. 20 or 30). With method floor it must match the floor type's thickness.",
+            "type": "number",
+            "minimum": 5,
+            "maximum": 300,
+            "x-unit": "mm"
+          },
+          "method": {
+            "description": "floor: a floor of the named floorType (schedulable as a floor). directshape: a Generic Model solid with the given material.",
+            "type": "string",
+            "enum": [
+              "floor",
+              "directshape"
+            ]
+          },
+          "floorType": {
+            "description": "method floor: floor type for the top (e.g. \"Tampo granito 20 mm\").",
+            "type": "string"
+          },
+          "material": {
+            "description": "Material by name or id for the directshape parts (top with method directshape, apron and backsplash with both methods).",
+            "type": "string"
+          },
+          "cutouts": {
+            "description": "Rectangular cut-outs through the top (sink, cooktop).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "center": {
+                  "description": "Centre of the cut-out (sink/cooktop) in plan, mm.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "X coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Y coordinate in mm from the project's internal origin.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "width": {
+                  "description": "Cut-out size along X before rotation, mm.",
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "x-unit": "mm"
+                },
+                "depth": {
+                  "description": "Cut-out size along Y before rotation, mm.",
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "x-unit": "mm"
+                },
+                "rotation": {
+                  "description": "Counter-clockwise rotation in degrees. Default 0.",
+                  "type": "number",
+                  "x-unit": "deg",
+                  "default": 0
+                }
+              },
+              "required": [
+                "center",
+                "width",
+                "depth"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "frontEdges": {
+            "description": "Edge indexes that get a front apron (saia). Default none.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "apronHeight": {
+            "description": "Total visible height of the front apron in mm, top thickness included (e.g. 40). Needs frontEdges.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000,
+            "x-unit": "mm"
+          },
+          "backsplashEdges": {
+            "description": "Edge indexes that get a backsplash (rodabanca/frontão). Default none.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "backsplashHeight": {
+            "description": "Backsplash height above the top in mm (e.g. 100). Needs backsplashEdges.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2000,
+            "x-unit": "mm"
+          },
+          "mark": {
+            "description": "Value for the Mark parameter (e.g. \"T01\").",
+            "type": "string"
+          }
+        },
+        "required": [
+          "level",
+          "height",
+          "thickness",
+          "method"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "create_floor",
       "description": "Create floors (slabs or finish floors) from a polygon in mm (with holes), a rectangle, or a room's boundary (inner finish face by default, optional boundaryOffset). The floor type must be named. heightOffset (mm) is written to 'Height Offset From Level', not baked into the outline. Every floor is read back (id, area m², thickness, offset). One Ctrl+Z undoes the call.",
       "kind": "write",
@@ -553,6 +774,102 @@
         },
         "required": [
           "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_room_perimeter_profile",
+      "description": "Run a baseboard (rodapé) or ceiling trim (tabica) along the perimeter of rooms, skipping door openings and room separation lines. method line_family places a line-based family per boundary piece (exact per room); method wall_sweep adds a wall sweep on the room side of each wall (whole wall, cut by inserts). Ceiling trims default to the height of the ceiling over the room. Returns ids and total length (m) per room. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rooms": {
+            "description": "Rooms by id, number or name. Give rooms or level.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "level": {
+            "description": "All placed rooms of this level (name or id). Give rooms or level.",
+            "type": "string"
+          },
+          "kind": {
+            "description": "baseboard = rodapé at the floor; ceiling_trim = tabica/moldura at the ceiling line.",
+            "type": "string",
+            "enum": [
+              "baseboard",
+              "ceiling_trim"
+            ]
+          },
+          "method": {
+            "description": "line_family: line-based family instances on each boundary piece, interrupted at openings (exact per room). wall_sweep: a wall sweep on the room side of each bounding wall (runs the whole wall; cut by doors).",
+            "type": "string",
+            "enum": [
+              "line_family",
+              "wall_sweep"
+            ]
+          },
+          "type": {
+            "description": "line_family: line-based family type (\"Family: Type\"), e.g. the office's rodapé family. wall_sweep: wall sweep type name.",
+            "type": "string"
+          },
+          "elevation": {
+            "description": "Height of the profile above the room's level in mm. Default: 0 for baseboard; the height of the ceiling over the room for ceiling_trim.",
+            "type": "number",
+            "x-unit": "mm"
+          },
+          "boundaryLocation": {
+            "description": "Which wall line the profile follows. Default finish (inner face of the walls).",
+            "type": "string",
+            "enum": [
+              "finish",
+              "center",
+              "coreBoundary",
+              "coreCenter"
+            ],
+            "default": "finish"
+          },
+          "skipOpenings": {
+            "description": "Interrupt the profile where a door/opening crosses its height. Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "skipSeparationLines": {
+            "description": "No profile along room separation lines (there is no wall). Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "minSegment": {
+            "description": "Pieces shorter than this (mm) are skipped. Default 50.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000,
+            "x-unit": "mm",
+            "default": 50
+          },
+          "reverseDirection": {
+            "description": "line_family: draw each piece the other way, which flips which side the profile sticks out. Default false (room on the left of each line).",
+            "type": "boolean",
+            "default": false
+          },
+          "continueOnError": {
+            "description": "false (default): a failing room rolls back the call. true: failing rooms are listed in failed[].",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "kind",
+          "method",
+          "type"
         ],
         "additionalProperties": false
       }

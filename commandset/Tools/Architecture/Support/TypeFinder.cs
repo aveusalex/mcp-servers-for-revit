@@ -44,6 +44,28 @@ namespace RevitMCPCommandSet.Tools.Architecture.Support
             }
         }
 
+        /// <summary>Any element type of a category (e.g. wall sweep types), by "Family: Type", type name or id.</summary>
+        public static ElementType ResolveInCategory(Document doc, string text, BuiltInCategory category, string what)
+        {
+            var list = new FilteredElementCollector(doc).WhereElementIsElementType().OfCategory(category)
+                .Cast<ElementType>().ToList();
+            if (string.IsNullOrWhiteSpace(text))
+                throw Required(what, list.Select(LookupService.FullName));
+            if (long.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && id > 0)
+            {
+                var byId = list.FirstOrDefault(t => t.Id.GetValue() == id);
+                if (byId != null) return byId;
+            }
+            FamilyTypeName.Parse(text, out var family, out var type);
+            var pool = family == null
+                ? list
+                : list.Where(t => string.Equals(TextMatch.Key(LookupService.SafeFamilyName(t) ?? ""), TextMatch.Key(family), StringComparison.Ordinal)).ToList();
+            if (pool.Count == 0)
+                throw new ToolException("TYPE_NOT_FOUND", $"No {what} '{text}' exists.",
+                    list.Count > 0 ? "Available: " + string.Join("; ", list.Take(30).Select(LookupService.FullName)) + "." : $"The document has no {what}.");
+            return NameMatcher.Single(type, pool.Select(t => new NamedCandidate<ElementType>(t.Name, t, LookupService.FullName(t) + ", id " + t.Id.GetValue())), what);
+        }
+
         public static ToolException Required(string what, IEnumerable<string> available)
         {
             var names = available.Take(30).ToList();
