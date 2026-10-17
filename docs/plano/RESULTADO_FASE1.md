@@ -127,3 +127,19 @@ Bugs desta rodada, corrigidos e revalidados (23–26):
 
 Não testados ao vivo: `create_void_cut` (precisa de uma família com vazio não anexado) e `load_rvt_as_group` (precisa
 de um .rvt salvo nas pastas permitidas; salvar é risco médio e passa por aprovação).
+
+## Rodada R3: detalhamento de marcenaria inspirado no catálogo ao vivo do MAPA (17/10/2026)
+
+**180 ferramentas no framework.** Novas, testadas ao vivo com um balcão 1200×870×580 (montagem + vistas 1:20 + folha):
+- `dimension_assembly` — cotas horizontais e verticais em cada elevação/corte da montagem: geral (1200, 870, 598) e
+  por peça (18 · 581 · 584 · 18; 100 · 18 · 734 · 18). Folgas abaixo de 5 mm são ignoradas e textos de segmentos
+  curtos saem da linha (nas pontas, para fora da corrente).
+- `tag_assembly` — identificadores alinhados em coluna ao lado do objeto, com chamada para a peça mais à frente; peças
+  por Comentários/tipo, materiais por material. Funciona em vista 3D travada.
+- `lock_3d_view` — salvar orientação e travar vista 3D.
+- `tag_elements` com `mode: material`.
+- `create_finish_material` agora preenche a Descrição do material (o identificador de material imprime a Descrição).
+
+Limitações conhecidas: o modelo de teste não tem família de identificador de gabinete (os identificadores de peça
+falham com aviso claro: carregar a família ou passar `tagType`); em peças DirectShape o identificador de material vira
+nota de texto (ver `COBERTURA_MAPA.md`); rodar `tag_assembly` de novo sem `clear` duplica essas notas de texto.

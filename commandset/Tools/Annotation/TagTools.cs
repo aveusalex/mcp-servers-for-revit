@@ -20,8 +20,14 @@ namespace RevitMCPCommandSet.Tools.Annotation
         [Description("Element to tag: id, UniqueId, or \"linkInstanceId:elementId\" for an element inside a Revit link.")]
         public string Element { get; set; }
 
+        [JsonProperty("mode")]
+        [EnumValues("category", "material")]
+        [DefaultValue("category")]
+        [Description("category (default): the category's tag. material: a material tag (identificador de material) showing the element's material; Revit picks the material when the element has several.")]
+        public string Mode { get; set; } = "category";
+
         [JsonProperty("tagType")]
-        [Description("Tag type as \"Family: Type\", type name or id. Omit for the category's default tag.")]
+        [Description("Tag type as \"Family: Type\", type name or id (a material tag type when mode is material). Omit for the default tag.")]
         public string TagType { get; set; }
 
         [JsonProperty("leader")]
@@ -76,7 +82,8 @@ namespace RevitMCPCommandSet.Tools.Annotation
     /// <summary>ANO-01.</summary>
     [McpTool("tag_elements", Kind = ToolKind.Write, Risk = Risk.Low, Toolset = "annotation",
         Description = "Tag specific elements in a view (any category; rooms, areas and spaces get room/area/space " +
-                      "tags; elements of Revit links via \"linkInstanceId:elementId\"). Optional tag type " +
+                      "tags; elements of Revit links via \"linkInstanceId:elementId\"), or material tags with " +
+                      "mode:material (identificador de material). Optional tag type " +
                       "(\"Family: Type\"), leader, orientation and placement in the view plane (mm) or offset. Skips " +
                       "already-tagged elements by default. One transaction; all or nothing unless continueOnError. " +
                       "Returns created tag ids. Undo: Ctrl+Z or delete the returned ids.")]
@@ -155,7 +162,8 @@ namespace RevitMCPCommandSet.Tools.Annotation
             var resolved = ctx.Services.Lookup.Resolve(item.Element);
             var element = resolved.Element;
             var link = resolved.Link;
-            var key = TagSupport.Key(element.Id.GetValue(), link?.Id.GetValue());
+            bool byMaterial = string.Equals(item.Mode, "material", StringComparison.OrdinalIgnoreCase);
+            var key = (byMaterial ? TagSupport.MaterialPrefix : string.Empty) + TagSupport.Key(element.Id.GetValue(), link?.Id.GetValue());
             if (tagged.Contains(key)) return (true, null);
             if (element is ElementType)
                 throw new ToolException("INVALID_TARGET", $"'{item.Element}' is a type; tag an instance.");
@@ -164,7 +172,11 @@ namespace RevitMCPCommandSet.Tools.Annotation
             if (element is Room room && room.Area <= 0)
                 throw new ToolException("ROOM_NOT_PLACED", $"Room '{room.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? room.Name}' is not placed or not enclosed.");
 
-            var tagType = string.IsNullOrWhiteSpace(item.TagType) ? null : TagSupport.ResolveTagType(ctx, item.TagType, element.Category);
+            if (byMaterial && (element is Room || element is Area || element is Autodesk.Revit.DB.Mechanical.Space))
+                throw new ToolException("INVALID_TARGET", $"'{item.Element}' is a room/area/space and has no material to tag.");
+            var tagType = string.IsNullOrWhiteSpace(item.TagType) ? null
+                : byMaterial ? TagSupport.ResolveMaterialTagType(ctx, item.TagType)
+                : TagSupport.ResolveTagType(ctx, item.TagType, element.Category);
             XYZ point;
             if (item.Point != null)
             {
@@ -178,7 +190,7 @@ namespace RevitMCPCommandSet.Tools.Annotation
             }
             point += ViewPlane.Offset(view, item.OffsetX, item.OffsetY);
 
-            var tag = TagSupport.CreateTag(ctx.Doc, view, element, link, tagType, item.Leader, TagSupport.Orientation(item.Orientation), point);
+            var tag = TagSupport.CreateTag(ctx.Doc, view, element, link, tagType, item.Leader, TagSupport.Orientation(item.Orientation), point, byMaterial);
             tagged.Add(key);
             var typeName = (ctx.Doc.GetElement(tag.GetTypeId()) as ElementType);
             return (false, new

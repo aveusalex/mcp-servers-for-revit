@@ -222,3 +222,23 @@ Resumo: 216 ferramentas do MAPA → **182 com equivalente implementado**, 0 pend
 | unpin_elements | EDT-04 | set_elements_pinned | **implementada** |
 | update_filter_overrides | VIS-17 | apply_view_filter | **implementada** |
 | wall_attach_top_base | EDT-10 | set_wall_base_top | **implementada** |
+
+## Catálogo ao vivo do MAPA (17/10/2026, após login do usuário)
+
+Lido com `tools/list` direto da ponte do MAPA (nenhuma ferramenta executada): **210 ferramentas**. Contra a lista
+inferida, 23 nomes eram novos. Classificação:
+
+| Ferramenta MAPA | Nossa ferramenta | Situação |
+|---|---|---|
+| executar_receita | execute_batch (refs `$steps[i].path`, rollback total) | equivalente já existente |
+| get_layer_structure / set_layer_material | get_compound_structure / set_compound_structure (patch por índice) | equivalente já existente |
+| criar_acabamento_mdf / criar_revestimento | create_finish_material | equivalente já existente |
+| tag_material | tag_elements `mode: material` | **implementada** (testada ao vivo) |
+| lock_3d_view | lock_3d_view | **implementada** (testada ao vivo) |
+| cotar_montagem | dimension_assembly (geral, por peça ou ambos; textos curtos afastados) | **implementada** (testada ao vivo) |
+| identificar_montagem | tag_assembly (peças + materiais em coluna, com chamada) | **implementada** (testada ao vivo) |
+| Twinmotion/Datasmith (8), taxonomia Filtro/Subfiltro (5), overrides de receita | — | descartadas (método proprietário do escritório deles) |
+
+Achado no teste: o Revit não lê o material de peças DirectShape (marcenaria) para o identificador de material — ele
+imprime "?". O `tag_assembly` detecta isso e escreve o nome do material como nota de texto com chamada, avisando que
+ela não acompanha mudanças de material.

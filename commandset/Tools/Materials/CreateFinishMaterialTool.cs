@@ -182,6 +182,13 @@ namespace RevitMCPCommandSet.Tools.Materials
             var applied = new List<string>();
             material.MaterialClass = a.MaterialClass ?? (a.Kind == "mdf" ? "Madeira" : a.Kind == "tile" ? "Cerâmica" : "Pintura");
             applied.Add("materialClass");
+            // Material tags print the Description: an empty one shows as "?" on drawings.
+            var description = material.get_Parameter(BuiltInParameter.ALL_MODEL_DESCRIPTION);
+            if (description != null && !description.IsReadOnly && string.IsNullOrWhiteSpace(description.AsString()))
+            {
+                description.Set(material.Name);
+                applied.Add("description");
+            }
             if (color != null)
             {
                 material.Color = color;

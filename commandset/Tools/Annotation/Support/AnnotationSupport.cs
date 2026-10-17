@@ -99,11 +99,13 @@ namespace RevitMCPCommandSet.Tools.Annotation.Support
             {
                 try
                 {
+                    // Material tags are keyed apart, so an element can carry one tag of each kind.
+                    var prefix = IsMaterialTag(tag) ? MaterialPrefix : string.Empty;
                     foreach (var id in tag.GetTaggedLocalElementIds())
-                        if (id != ElementId.InvalidElementId) keys.Add(Key(id.GetValue(), null));
+                        if (id != ElementId.InvalidElementId) keys.Add(prefix + Key(id.GetValue(), null));
                     foreach (var r in tag.GetTaggedReferences())
                         if (r.LinkedElementId != ElementId.InvalidElementId)
-                            keys.Add(Key(r.LinkedElementId.GetValue(), r.ElementId.GetValue()));
+                            keys.Add(prefix + Key(r.LinkedElementId.GetValue(), r.ElementId.GetValue()));
                 }
                 catch
                 {
@@ -155,6 +157,15 @@ namespace RevitMCPCommandSet.Tools.Annotation.Support
             return null;
         }
 
+        public const string MaterialPrefix = "m:";
+
+        public static bool IsMaterialTag(Element tag) =>
+            tag?.Category != null && tag.Category.Id.GetValue() == (long)BuiltInCategory.OST_MaterialTags;
+
+        /// <summary>A material tag type by "Family: Type" / type name / id.</summary>
+        public static FamilySymbol ResolveMaterialTagType(ToolContext ctx, string text) =>
+            ctx.Services.Lookup.FamilySymbol(text, BuiltInCategory.OST_MaterialTags);
+
         /// <summary>A tag type by "Family: Type" / type name / id, for tagging elements of <paramref name="elementCategory"/>.</summary>
         public static FamilySymbol ResolveTagType(ToolContext ctx, string text, Category elementCategory)
         {
@@ -201,7 +212,7 @@ namespace RevitMCPCommandSet.Tools.Annotation.Support
 
         /// <summary>Creates one tag. Throws <see cref="ToolException"/> with a stable code on expected failures.</summary>
         public static Element CreateTag(Document doc, View view, Element element, RevitLinkInstance link, FamilySymbol tagType,
-            bool leader, TagOrientation orientation, XYZ point)
+            bool leader, TagOrientation orientation, XYZ point, bool byMaterial = false)
         {
             if (tagType != null && !tagType.IsActive) tagType.Activate();
             try
@@ -240,6 +251,22 @@ namespace RevitMCPCommandSet.Tools.Annotation.Support
 
                 var reference = new Reference(element);
                 if (link != null) reference = reference.CreateLinkReference(link);
+                if (byMaterial)
+                {
+                    // Material tag (IM): tagged on a face, else Revit can't tell which material to show and prints "?".
+                    IndependentTag materialTag = null;
+                    var face = link == null ? MaterialFaceReference(element, view) : null;
+                    if (face != null)
+                    {
+                        try { materialTag = IndependentTag.Create(doc, view.Id, face, leader, TagMode.TM_ADDBY_MATERIAL, orientation, point); }
+                        catch (Autodesk.Revit.Exceptions.ArgumentException) { /* some faces can't be tagged: try the element */ }
+                    }
+                    if (materialTag == null)
+                        materialTag = IndependentTag.Create(doc, view.Id, reference, leader, TagMode.TM_ADDBY_MATERIAL, orientation, point);
+                    if (materialTag == null) throw new ToolException("TAG_FAILED", "Revit did not create the material tag.");
+                    if (tagType != null) materialTag.ChangeTypeId(tagType.Id);
+                    return materialTag;
+                }
                 var created = tagType != null
                     ? IndependentTag.Create(doc, tagType.Id, view.Id, reference, leader, orientation, point)
                     : IndependentTag.Create(doc, view.Id, reference, leader, TagMode.TM_ADDBY_CATEGORY, orientation, point);
@@ -256,6 +283,36 @@ namespace RevitMCPCommandSet.Tools.Annotation.Support
                 throw new ToolException("TAG_FAILED", ex.Message,
                     "Load a tag family for this category, or pass tagType.");
             }
+        }
+
+        /// <summary>The largest planar face of the element facing the viewer, or null.</summary>
+        public static Reference MaterialFaceReference(Element element, View view)
+        {
+            GeometryElement geo;
+            // View-independent geometry: face references taken from view-specific geometry can't be tagged.
+            try { geo = element.get_Geometry(new Options { ComputeReferences = true, DetailLevel = ViewDetailLevel.Fine }); }
+            catch { return null; }
+            if (geo == null) return null;
+            Reference best = null;
+            double bestArea = 0;
+            void Walk(GeometryElement g)
+            {
+                foreach (var obj in g)
+                {
+                    if (obj is Solid s)
+                    {
+                        foreach (Face f in s.Faces)
+                        {
+                            if (!(f is PlanarFace pf) || pf.Reference == null) continue;
+                            if (pf.FaceNormal.DotProduct(view.ViewDirection) < 0.1) continue; // faces away from the viewer
+                            if (pf.Area > bestArea) { bestArea = pf.Area; best = pf.Reference; }
+                        }
+                    }
+                    else if (obj is GeometryInstance gi) Walk(gi.GetInstanceGeometry());
+                }
+            }
+            Walk(geo);
+            return best;
         }
 
         public static TagOrientation Orientation(string text)

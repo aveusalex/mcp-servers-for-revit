@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "059fc0f41522e22fe8414e7a5ed62bc97cb3dd05dbd01fdd0a53b25d7546391f",
+  "capabilityHash": "9eaf8f092d303f294b76cde9182539af1502f4c1313866c3380ccde2d51e589b",
   "tools": [
     {
       "name": "activate_view",
@@ -5978,6 +5978,93 @@
       }
     },
     {
+      "name": "dimension_assembly",
+      "description": "Dimension the views of an assembly (conjunto, e.g. a millwork module from create_millwork_module + manage_assembly + create_assembly_views): in each elevation/section/plan of the assembly, a horizontal and a vertical dimension along the view's own axes, either overall (extreme faces), per piece (a chain through every face: panel thicknesses, gaps, shelves) or both stacked. Offsets are in paper mm, so it reads the same at any scale. Views it can't use are listed with the reason. Returns each dimension's id and segment values in mm. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "assemblyId": {
+            "description": "Assembly instance id. Default: assemblyName, or the only assembly in the model.",
+            "type": "integer"
+          },
+          "assemblyName": {
+            "description": "Assembly type name (exact or partial) when assemblyId is not given.",
+            "type": "string"
+          },
+          "views": {
+            "description": "Views to dimension (names or ids). Default: every elevation/section/plan view of the assembly (3D views and schedules are skipped and listed).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "detail": {
+            "description": "overall (default): one horizontal and one vertical dimension between the extreme faces. pieces: a chain through every piece face (each panel thickness and gap). both: pieces chain next to the object and the overall one outside it.",
+            "type": "string",
+            "enum": [
+              "overall",
+              "pieces",
+              "both"
+            ],
+            "default": "overall"
+          },
+          "horizontalSide": {
+            "description": "Where the horizontal dimensions go. Default bottom.",
+            "type": "string",
+            "enum": [
+              "bottom",
+              "top"
+            ],
+            "default": "bottom"
+          },
+          "verticalSide": {
+            "description": "Where the vertical dimensions go. Default left.",
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ],
+            "default": "left"
+          },
+          "offsetPaperMm": {
+            "description": "Distance from the object to the first dimension line, in paper mm (scaled by each view's scale). Default 8.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100,
+            "x-unit": "mm",
+            "default": 8
+          },
+          "stepPaperMm": {
+            "description": "Distance between stacked dimension lines (detail both), in paper mm. Default 7.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100,
+            "x-unit": "mm",
+            "default": 7
+          },
+          "minSegmentMm": {
+            "description": "pieces chain: faces closer than this to the previous one are left out (e.g. 1.5 mm door overlay gaps), so texts don't pile up. The extreme faces are always kept. Default 5; 0 keeps every face.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000,
+            "x-unit": "mm",
+            "default": 5
+          },
+          "dimensionType": {
+            "description": "Linear dimension type (name or id). Default: the document's default.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "dimension_elements",
       "description": "Create an aligned chain dimension between parallel walls (exterior/interior face), grids, reference planes or family instance references (center, left/right, front/back) in a plan, section or elevation. The dimension line is computed perpendicular to the targets (or given in the view plane in mm). Returns the dimension id and each segment value in mm, read back. Not for 3D views. Undo: Ctrl+Z or delete the returned id.",
       "kind": "write",
@@ -10174,6 +10261,34 @@
       }
     },
     {
+      "name": "lock_3d_view",
+      "description": "Save the orientation of a 3D view and lock it (Salvar orientação e travar vista), which Revit requires before tags (tag_elements, including material tags) or annotations can be placed in 3D, e.g. the 3D view of a millwork assembly. unlock:true unlocks it. Already locked/unlocked views are reported, not changed. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "views",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "3D view by name or id (never the active view implicitly).",
+            "type": "string"
+          },
+          "unlock": {
+            "description": "false (default): save the orientation and lock the view. true: unlock it (its tags and dimensions are hidden until it is locked again).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "view"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "manage_assembly",
       "description": "Assemblies (conjuntos, e.g. a millwork module or a prefab piece): create one from element ids with an optional type name and naming category, add or remove members, rename the assembly type, or disassemble it (members stay). Revit commits the new assembly before it can be named, so create runs as one undo step made of two transactions. Then use create_assembly_views for its views and schedules. Undo: Ctrl+Z.",
       "kind": "write",
@@ -14268,8 +14383,92 @@
       "dryRunDefault": true
     },
     {
+      "name": "tag_assembly",
+      "description": "Annotate the views of an assembly (e.g. a millwork module) with tags aligned in a column beside the object: one piece tag per distinct piece (grouped by Comments, e.g. 'Lateral', 'Porta', else by type) and one material tag per distinct material, with leaders, ordered top to bottom so leaders don't cross. Works in elevations, sections, plans and locked 3D views (lock_3d_view). clear:true replaces earlier tags. Tags that Revit refuses (e.g. no tag family loaded for the category) are listed, not fatal. Pair with dimension_assembly. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "assemblyId": {
+            "description": "Assembly instance id. Default: assemblyName, or the only assembly in the model.",
+            "type": "integer"
+          },
+          "assemblyName": {
+            "description": "Assembly type name (exact or partial) when assemblyId is not given.",
+            "type": "string"
+          },
+          "views": {
+            "description": "Views to annotate (names or ids). Default: every elevation/section/plan of the assembly plus its locked 3D views (unlocked 3D views and schedules are skipped and listed).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pieceTags": {
+            "description": "Tag the pieces: one category tag per distinct piece (grouped by Comments, else by type), on the most visible piece of each group. Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "materialTags": {
+            "description": "Material tags (identificador de material): one per distinct material. Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "side": {
+            "description": "Side of the object where the tag column goes. Default right.",
+            "type": "string",
+            "enum": [
+              "right",
+              "left"
+            ],
+            "default": "right"
+          },
+          "offsetPaperMm": {
+            "description": "Distance from the object to the tag column, in paper mm (scaled by each view's scale). Default 20.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 200,
+            "x-unit": "mm",
+            "default": 20
+          },
+          "stepPaperMm": {
+            "description": "Vertical spacing between tags in the column, in paper mm. Default 6.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "x-unit": "mm",
+            "default": 6
+          },
+          "leader": {
+            "description": "Draw leaders from the column to the pieces. Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "tagType": {
+            "description": "Tag type for the pieces (\"Family: Type\", name or id; e.g. a tag showing Comments). Default: the category's default tag.",
+            "type": "string"
+          },
+          "materialTagType": {
+            "description": "Material tag type (\"Family: Type\", name or id). Default: the document's default material tag.",
+            "type": "string"
+          },
+          "clear": {
+            "description": "First delete the tags already on the assembly's pieces in those views (re-annotate after a change). Default false: pieces already tagged are skipped.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "tag_elements",
-      "description": "Tag specific elements in a view (any category; rooms, areas and spaces get room/area/space tags; elements of Revit links via \"linkInstanceId:elementId\"). Optional tag type (\"Family: Type\"), leader, orientation and placement in the view plane (mm) or offset. Skips already-tagged elements by default. One transaction; all or nothing unless continueOnError. Returns created tag ids. Undo: Ctrl+Z or delete the returned ids.",
+      "description": "Tag specific elements in a view (any category; rooms, areas and spaces get room/area/space tags; elements of Revit links via \"linkInstanceId:elementId\"), or material tags with mode:material (identificador de material). Optional tag type (\"Family: Type\"), leader, orientation and placement in the view plane (mm) or offset. Skips already-tagged elements by default. One transaction; all or nothing unless continueOnError. Returns created tag ids. Undo: Ctrl+Z or delete the returned ids.",
       "kind": "write",
       "risk": "low",
       "toolset": "annotation",
@@ -14293,8 +14492,17 @@
                   "description": "Element to tag: id, UniqueId, or \"linkInstanceId:elementId\" for an element inside a Revit link.",
                   "type": "string"
                 },
+                "mode": {
+                  "description": "category (default): the category's tag. material: a material tag (identificador de material) showing the element's material; Revit picks the material when the element has several.",
+                  "type": "string",
+                  "enum": [
+                    "category",
+                    "material"
+                  ],
+                  "default": "category"
+                },
                 "tagType": {
-                  "description": "Tag type as \"Family: Type\", type name or id. Omit for the category's default tag.",
+                  "description": "Tag type as \"Family: Type\", type name or id (a material tag type when mode is material). Omit for the default tag.",
                   "type": "string"
                 },
                 "leader": {
