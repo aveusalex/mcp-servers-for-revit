@@ -845,12 +845,18 @@ export class Broker {
         return Promise.resolve({ error: { code: "DOCUMENT_NOT_FOUND", message: `Document ${docId} closed mid-plan` } });
       }
       const c = classify(tool, args, manifest);
+      // An approved plan really runs: say dryRun:false explicitly, because tools with DryRunDefault
+      // (bulk edits) would otherwise only preview. Plans store steps without dryRun:false.
+      const wireArgs =
+        tool !== "execute_batch" && manifest?.get(tool)?.kind === "write" && !("dryRun" in (args ?? {}))
+          ? { ...args, dryRun: false }
+          : args;
       return this._sendToPlugin(this.registry.documents.get(docId)?.sessionId, session.ws, {
         type: "command",
         correlationId,
         docId,
         command: tool,
-        params: args,
+        params: wireArgs,
         kind: c.kind,
         risk: c.risk,
         planId: plan.planId,

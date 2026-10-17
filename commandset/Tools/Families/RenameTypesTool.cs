@@ -76,7 +76,7 @@ namespace RevitMCPCommandSet.Tools.Families
     }
 
     /// <summary>FAM-04: rename types (or their families) in batch, on the shared RenameEngine.</summary>
-    [McpTool("rename_types", Kind = ToolKind.Write, Risk = Risk.Medium, Toolset = "families",
+    [McpTool("rename_types", Kind = ToolKind.Write, Risk = Risk.Medium, DryRunDefault = true, Toolset = "families",
         Description = "Rename types in batch (or, with renameFamilies, their loadable families): set with {n} counter, " +
                       "prefix, suffix, findReplace or regexReplace, over explicit type ids or every type of categories " +
                       "filtered by family and name. Checks forbidden characters and collisions within each family " +

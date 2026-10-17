@@ -112,7 +112,7 @@ namespace RevitMCPCommandSet.Tools.Parameters
     }
 
     /// <summary>PAR-04: "update where" on the ParameterService engine (plan, apply, read-back, revert).</summary>
-    [McpTool("bulk_update_parameters", Kind = ToolKind.Write, Risk = Risk.Medium, Toolset = "parameters",
+    [McpTool("bulk_update_parameters", Kind = ToolKind.Write, Risk = Risk.Medium, DryRunDefault = true, Toolset = "parameters",
         Description = "Apply one change to a parameter on every element that matches a scope: explicit elementIds, " +
                       "categories (any language) narrowed by view and where[] conditions, or the current selection. " +
                       "Operations: set, prefix, suffix, findReplace, regexReplace, clear, copyFrom another parameter; " +

@@ -50,6 +50,12 @@ namespace RevitMCPCommandSet.Framework
 
         public bool Idempotent { get; set; }
 
+        /// <summary>
+        /// Write tools only: when the caller doesn't pass dryRun, preview instead of applying. For bulk edits
+        /// (rename, renumber, update-where, import) so a careless call shows the plan instead of changing the model.
+        /// </summary>
+        public bool DryRunDefault { get; set; }
+
         /// <summary>After this many seconds the broker answers "running" and the client polls get_job_result.</summary>
         public int TimeoutSeconds { get; set; } = 50;
 

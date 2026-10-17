@@ -49,7 +49,7 @@ export const DRY_RUN_PARAM: JsonSchema = {
 export function withFrameworkParams(
   schema: JsonSchema | undefined,
   kind: ToolKind,
-  opts: { document?: boolean; name?: string } = {}
+  opts: { document?: boolean; name?: string; dryRunDefault?: boolean } = {}
 ): JsonSchema {
   const base: JsonSchema = schema && typeof schema === "object" ? structuredClone(schema) : {};
   if (base.type !== undefined && base.type !== "object") {
@@ -63,7 +63,17 @@ export function withFrameworkParams(
     }
   }
   if (opts.document !== false) base.properties.document = { ...DOCUMENT_PARAM };
-  if (kind === "write") base.properties.dryRun = { ...DRY_RUN_PARAM };
+  if (kind === "write") {
+    base.properties.dryRun = opts.dryRunDefault
+      ? {
+          ...DRY_RUN_PARAM,
+          default: true,
+          description:
+            DRY_RUN_PARAM.description +
+            " Defaults to true for this tool: pass dryRun:false to apply (after reviewing the preview).",
+        }
+      : { ...DRY_RUN_PARAM };
+  }
   return base;
 }
 
@@ -234,13 +244,18 @@ export function registerManifestTools(server: McpServer, manifest: ToolManifest,
 
   for (const tool of manifest.tools) {
     if (!isExposed(tool, opts.policy)) continue;
-    const inputSchema = withFrameworkParams(tool.inputSchema, tool.kind, { name: tool.name });
+    const inputSchema = withFrameworkParams(tool.inputSchema, tool.kind, {
+      name: tool.name,
+      dryRunDefault: tool.dryRunDefault === true,
+    });
     registerFrameworkTool(
       server,
       { ...tool, inputSchema, meta: { batchable: tool.batchable, timeoutSeconds: tool.timeoutSeconds } },
       async (args) => {
         const { document, dryRun, ...rest } = args;
-        const params: Record<string, unknown> = tool.kind === "write" ? { ...rest, dryRun: dryRun === true } : rest;
+        // Always forward an explicit boolean: the broker gates on it and the add-in applies the same default.
+        const effectiveDryRun = dryRun === undefined ? tool.dryRunDefault === true : dryRun === true;
+        const params: Record<string, unknown> = tool.kind === "write" ? { ...rest, dryRun: effectiveDryRun } : rest;
         return normalizeEnvelope(await send(tool.name, params, document));
       },
       opts.guard ?? {}

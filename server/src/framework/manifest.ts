@@ -19,6 +19,8 @@ export interface ManifestTool {
   batchable: boolean;
   idempotent: boolean;
   timeoutSeconds: number;
+  /** Write tools: preview unless the caller passes dryRun:false. */
+  dryRunDefault?: boolean;
   inputSchema: JsonSchema;
 }
 

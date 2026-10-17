@@ -47,7 +47,7 @@ namespace RevitMCPCommandSet.Tools.Families
     }
 
     /// <summary>FAM-02: every instance of type A becomes type B (project, view or selection).</summary>
-    [McpTool("replace_type_instances", Kind = ToolKind.Write, Risk = Risk.Medium, Toolset = "families",
+    [McpTool("replace_type_instances", Kind = ToolKind.Write, Risk = Risk.Medium, DryRunDefault = true, Toolset = "families",
         Description = "Replace every instance of one type with another type of the same category, in the whole project, " +
                       "in a view or in the selection. Types by id, \"Family: Type\" or name. Instances inside groups are " +
                       "skipped and reported (Revit can't change them without editing the group). Preview with " +

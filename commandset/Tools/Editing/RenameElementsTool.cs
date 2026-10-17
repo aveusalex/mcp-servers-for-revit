@@ -79,7 +79,7 @@ namespace RevitMCPCommandSet.Tools.Editing
     }
 
     /// <summary>EDT-07: batch rename with collision checks and swap-safe two passes.</summary>
-    [McpTool("rename_elements", Kind = ToolKind.Write, Risk = Risk.Medium, Toolset = "editing",
+    [McpTool("rename_elements", Kind = ToolKind.Write, Risk = Risk.Medium, DryRunDefault = true, Toolset = "editing",
         Description = "Rename many elements at once: views, sheets (name or number), levels, grids, rooms (Name " +
                       "parameter), types, families, materials. Operations: set (with {n} counter), prefix, suffix, " +
                       "findReplace, regexReplace. Before writing it checks characters Revit forbids and collisions in " +

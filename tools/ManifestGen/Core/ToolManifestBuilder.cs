@@ -96,7 +96,7 @@ namespace RevitMCP.Manifest
                 schema = ObjectSchema(argsType, new Stack<string>(), warn, name);
             }
 
-            return new JObject
+            var entry = new JObject
             {
                 ["name"] = name,
                 ["description"] = description,
@@ -108,6 +108,13 @@ namespace RevitMCP.Manifest
                 ["timeoutSeconds"] = timeout,
                 ["inputSchema"] = schema
             };
+            // Only written when set, so tools without it keep the same entry (and capabilityHash).
+            if (Named(mcpTool, "DryRunDefault")?.Value as bool? == true)
+            {
+                if (kind != "write") warn($"{name}: DryRunDefault only applies to write tools.");
+                entry["dryRunDefault"] = true;
+            }
+            return entry;
         }
 
         /// <summary>

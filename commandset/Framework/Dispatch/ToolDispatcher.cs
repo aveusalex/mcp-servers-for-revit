@@ -145,7 +145,7 @@ namespace RevitMCPCommandSet.Framework
             }
 
             var args = (JObject)request.Args.DeepClone();
-            bool dryRun = TakeDryRun(args);
+            bool dryRun = TakeDryRun(args, tool.Metadata.DryRunDefault);
             args.Remove("document"); // routing argument, consumed by the server/broker
 
             var doc = string.IsNullOrEmpty(request.DocId)
@@ -159,10 +159,10 @@ namespace RevitMCPCommandSet.Framework
         private UIApplication _lastApp;
 
         /// <summary>Removes the injected <c>dryRun</c> flag from the args and returns it.</summary>
-        internal static bool TakeDryRun(JObject args)
+        internal static bool TakeDryRun(JObject args, bool defaultValue = false)
         {
             var token = args["dryRun"];
-            if (token == null) return false;
+            if (token == null || token.Type == JTokenType.Null) return defaultValue;
             args.Remove("dryRun");
             if (token.Type == JTokenType.Boolean) return (bool)token;
             if (token.Type == JTokenType.String) return string.Equals((string)token, "true", StringComparison.OrdinalIgnoreCase);

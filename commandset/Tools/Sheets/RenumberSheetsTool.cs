@@ -91,7 +91,7 @@ namespace RevitMCPCommandSet.Tools.Sheets
     }
 
     /// <summary>FOL-09: renumber/rename sheets in bulk, collision-checked, in two passes (swaps work).</summary>
-    [McpTool("renumber_sheets", Kind = ToolKind.Write, Risk = Risk.Medium, Toolset = "sheets",
+    [McpTool("renumber_sheets", Kind = ToolKind.Write, Risk = Risk.Medium, DryRunDefault = true, Toolset = "sheets",
         Description = "Renumber and/or rename sheets in bulk by explicit items, findReplace on numbers, or a sequence " +
                       "(prefix + zero-padded counter + suffix over an ordered list). The final numbering is computed " +
                       "first and checked for forbidden characters and collisions (with every other sheet, placeholders " +

@@ -234,7 +234,7 @@ namespace RevitMCPCommandSet.Tools.Annotation
     }
 
     /// <summary>ANO-02: generalizes the legacy tag_all_rooms / tag_all_walls (kept as they are).</summary>
-    [McpTool("tag_all_in_view", Kind = ToolKind.Write, Risk = Risk.Medium, Toolset = "annotation", TimeoutSeconds = 120,
+    [McpTool("tag_all_in_view", Kind = ToolKind.Write, Risk = Risk.Medium, DryRunDefault = true, Toolset = "annotation", TimeoutSeconds = 120,
         Description = "Tag every element of the given categories (any language) visible in a view, skipping the " +
                       "ones already tagged (local and linked tags detected). Rooms, areas and spaces get their own " +
                       "tags. Optional tag type per category, leader, orientation, elementIds and a limit per call. " +

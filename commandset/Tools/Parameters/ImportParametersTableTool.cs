@@ -70,7 +70,7 @@ namespace RevitMCPCommandSet.Tools.Parameters
     }
 
     /// <summary>PAR-07: CSV (from export_parameters_table or Excel) back into parameters, with a per-cell diff.</summary>
-    [McpTool("import_parameters_table", Kind = ToolKind.Write, Risk = Risk.Medium, Toolset = "parameters", TimeoutSeconds = 120,
+    [McpTool("import_parameters_table", Kind = ToolKind.Write, Risk = Risk.Medium, DryRunDefault = true, Toolset = "parameters", TimeoutSeconds = 120,
         Description = "Import a CSV table (as written by export_parameters_table and edited in Excel) into parameters. " +
                       "Rows are found by the key column (UniqueId or ElementId); headers name the parameter (\"Width [mm]\", " +
                       "optional {builtIn:X}/{guid:G}); columns starting with '_' are ignored. ALWAYS run it first with " +

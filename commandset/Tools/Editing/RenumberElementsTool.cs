@@ -91,7 +91,7 @@ namespace RevitMCPCommandSet.Tools.Editing
     }
 
     /// <summary>EDT-06: renumber by position or order, in two passes (temporary unique values, then the final ones).</summary>
-    [McpTool("renumber_elements", Kind = ToolKind.Write, Risk = Risk.Medium, Toolset = "editing",
+    [McpTool("renumber_elements", Kind = ToolKind.Write, Risk = Risk.Medium, DryRunDefault = true, Toolset = "editing",
         Description = "Renumber rooms, doors, windows, parking spaces or any element with a text number/Mark: by " +
                       "position (rows top-to-bottom then left-to-right, or columns), by current value or by id; start, " +
                       "increment, zero padding, prefix/suffix ({level} = level name) and optional restart per level. " +

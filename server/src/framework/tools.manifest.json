@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "ca7ac6ec6ab223d0f95d8e1765793a6d35b7e4c7e7715986e7baf0614198dd1d",
+  "capabilityHash": "131067c129c871091692b7c8ae175f27583b45370f486f0b923e91e927606b0d",
   "tools": [
     {
       "name": "activate_view",
@@ -780,7 +780,8 @@
           "operation"
         ],
         "additionalProperties": false
-      }
+      },
+      "dryRunDefault": true
     },
     {
       "name": "capture_view_image",
@@ -6911,7 +6912,8 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "dryRunDefault": true
     },
     {
       "name": "list_category_parameters",
@@ -8562,7 +8564,8 @@
           "operation"
         ],
         "additionalProperties": false
-      }
+      },
+      "dryRunDefault": true
     },
     {
       "name": "rename_types",
@@ -8650,7 +8653,8 @@
           "operation"
         ],
         "additionalProperties": false
-      }
+      },
+      "dryRunDefault": true
     },
     {
       "name": "renumber_elements",
@@ -8764,7 +8768,8 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "dryRunDefault": true
     },
     {
       "name": "renumber_sheets",
@@ -8873,7 +8878,8 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "dryRunDefault": true
     },
     {
       "name": "replace_type_instances",
@@ -8926,7 +8932,8 @@
           "toType"
         ],
         "additionalProperties": false
-      }
+      },
+      "dryRunDefault": true
     },
     {
       "name": "save_document",
@@ -11011,7 +11018,8 @@
           "categories"
         ],
         "additionalProperties": false
-      }
+      },
+      "dryRunDefault": true
     },
     {
       "name": "tag_elements",
