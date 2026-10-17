@@ -41,7 +41,7 @@ namespace RevitMCPCommandSet.Tools.Parameters
         public string BuildingName { get; set; }
 
         [JsonProperty("author")]
-        [Description("Author.")]
+        [Description("Author of the project information.")]
         public string Author { get; set; }
 
         [JsonProperty("organizationName")]
