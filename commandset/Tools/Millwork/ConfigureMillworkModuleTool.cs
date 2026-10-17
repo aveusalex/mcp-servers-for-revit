@@ -88,7 +88,13 @@ namespace RevitMCPCommandSet.Tools.Millwork
             bool typeReused = false;
             if (oldType != null && oldType.IsValidObject)
             {
-                if (oldType.Groups.Size == 0) doc.Delete(oldType.Id);
+                // GroupType.Groups is stale until a regeneration (live test left the old type behind): count the
+                // remaining instances directly.
+                doc.Regenerate();
+                var oldTypeId = oldType.Id;
+                bool stillUsed = new FilteredElementCollector(doc).OfClass(typeof(Group))
+                    .Cast<Group>().Any(g => g.GroupType?.Id == oldTypeId);
+                if (!stillUsed) doc.Delete(oldTypeId);
                 else typeReused = true;
             }
 
