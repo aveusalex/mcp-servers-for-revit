@@ -38,7 +38,7 @@ namespace RevitMCPCommandSet.Tools.Architecture.Support
                     }
                     catch (Autodesk.Revit.Exceptions.ApplicationException ex)
                     {
-                        throw new ToolException("REVIT_ERROR", $"{what} [{index}]: Revit refused it: {ex.Message} Nothing was created.",
+                        throw new ToolException("REVIT_ERROR", $"{what} [{index}]: Revit refused it ({ex.GetType().Name}): {ex.Message} Nothing was created.",
                             "Fix this item, or pass continueOnError:true to create the others.");
                     }
                     continue;

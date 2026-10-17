@@ -215,8 +215,9 @@ namespace RevitMCPCommandSet.Tools.Architecture
             }
             doc.Regenerate();
 
-            foreach (var wall in created)
+            for (int w = 0; w < created.Count; w++)
             {
+                var wall = created[w];
                 var line = (Line)((LocationCurve)wall.Location).Curve;
                 bool flip = item.Flip;
                 if (closed && exteriorSide != "asdrawn")
@@ -229,35 +230,36 @@ namespace RevitMCPCommandSet.Tools.Architecture
                 }
                 if (flip) wall.Flip();
 
+                if (keyRef != WallLocationLine.WallCenterline)
+                {
+                    // Put the body so the requested reference lies on the given line. Moving a joined wall's curve
+                    // mid-transaction made Revit throw InternalException (live test), and switching the location
+                    // line alone left the walls centred on the outline. So: recreate the wall directly on its
+                    // centerline (the given line shifted toward the exterior by the reference's distance from the
+                    // centre; finish interior = +W/2), with the same exterior side, then switch the location line,
+                    // which keeps the body and moves the curve onto the reference.
+                    double offset = ReferenceOffsetFromCenter(wall, keyRef); // + toward exterior
+                    var exterior = wall.Orientation.Normalize();
+                    var centre = (Line)line.CreateTransformed(Transform.CreateTranslation(exterior * -offset));
+                    doc.Delete(wall.Id);
+
+                    var rebuilt = Step("recreate the wall on its centerline", () =>
+                        Wall.Create(doc, centre, type.Id, baseLevel.Id, heightFt, ArchGeometry.Ft(item.BaseOffset), false, item.Structural));
+                    if (rebuilt == null)
+                        throw new ToolException("CREATE_FAILED", "Revit did not create the wall (Wall.Create returned nothing).");
+                    doc.Regenerate();
+                    if (rebuilt.Orientation.DotProduct(exterior) < 0) Step("flip the wall", () => { rebuilt.Flip(); return true; });
+                    Step("set the location line", () =>
+                        rebuilt.get_Parameter(BuiltInParameter.WALL_KEY_REF_PARAM).Set((int)keyRef));
+                    wall = rebuilt;
+                    created[w] = rebuilt;
+                }
+
                 if (topLevel != null)
                 {
                     var p = wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE);
                     p.Set(topLevel.Id);
                     ArchGeometry.SetDouble(wall, BuiltInParameter.WALL_TOP_OFFSET, ArchGeometry.Ft(item.TopOffset), "Top Offset");
-                }
-
-                if (keyRef != WallLocationLine.WallCenterline)
-                {
-                    // Put the body where the requested reference lies on the given line, explicitly: shift the
-                    // centerline toward the exterior by the reference's distance from the center (finish interior
-                    // = +W/2), then switch the location line. Whether Revit then keeps the body or the curve, the
-                    // last check puts the curve back on the given line (live test: relying on the parameter
-                    // alone left the walls centred on the outline).
-                    double offset = ReferenceOffsetFromCenter(wall, keyRef); // + toward exterior
-                    var exterior = wall.Orientation.Normalize();
-                    var centre = line.CreateTransformed(Transform.CreateTranslation(exterior * -offset));
-                    ((LocationCurve)wall.Location).Curve = centre;
-                    doc.Regenerate();
-
-                    wall.get_Parameter(BuiltInParameter.WALL_KEY_REF_PARAM).Set((int)keyRef);
-                    doc.Regenerate();
-
-                    var now = ((LocationCurve)wall.Location).Curve;
-                    if (now.GetEndPoint(0).DistanceTo(line.GetEndPoint(0)) > 1e-6 ||
-                        now.GetEndPoint(1).DistanceTo(line.GetEndPoint(1)) > 1e-6)
-                    {
-                        ((LocationCurve)wall.Location).Curve = line;
-                    }
                 }
                 if (!item.JoinEnds)
                 {
@@ -286,28 +288,52 @@ namespace RevitMCPCommandSet.Tools.Architecture
         /// Signed distance (feet) from the wall's centerline to the given location line, positive toward the
         /// exterior side. Uses the type's compound structure; walls without one only know the finish faces.
         /// </summary>
+        /// <summary>Runs one Revit API step and names it in the error if Revit throws.</summary>
+        private static T Step<T>(string what, Func<T> action)
+        {
+            try { return action(); }
+            catch (Autodesk.Revit.Exceptions.ApplicationException ex)
+            {
+                throw new ToolException("REVIT_ERROR", $"Revit refused to {what} ({ex.GetType().Name}): {ex.Message}");
+            }
+        }
+
         private static double ReferenceOffsetFromCenter(Wall wall, WallLocationLine keyRef)
         {
-            var cs = wall.WallType.GetCompoundStructure();
-            if (cs != null)
-            {
-                try
-                {
-                    // Revit measures this from the exterior finish face toward the interior; convert to "from the
-                    // centre toward the exterior".
-                    double fromExterior = cs.GetOffsetForLocationLine(keyRef);
-                    return wall.Width / 2 - fromExterior;
-                }
-                catch (Autodesk.Revit.Exceptions.ArgumentException)
-                {
-                    // fall through to the finish-face rule
-                }
-            }
+            // Finish faces are exactly half the width from the centre.
             switch (keyRef)
             {
+                case WallLocationLine.WallCenterline: return 0;
                 case WallLocationLine.FinishFaceExterior: return wall.Width / 2;
                 case WallLocationLine.FinishFaceInterior: return -wall.Width / 2;
-                default: return 0;
+            }
+
+            // Core lines depend on the layers: sum them from the exterior side.
+            var cs = wall.WallType.GetCompoundStructure();
+            if (cs == null) return 0;
+            try
+            {
+                var layers = cs.GetLayers();
+                int first = cs.GetFirstCoreLayerIndex(), last = cs.GetLastCoreLayerIndex();
+                double toCoreExterior = 0, coreThickness = 0;
+                for (int i = 0; i < layers.Count; i++)
+                {
+                    if (i < first) toCoreExterior += layers[i].Width;
+                    else if (i <= last) coreThickness += layers[i].Width;
+                }
+                double fromExterior;
+                switch (keyRef)
+                {
+                    case WallLocationLine.CoreExterior: fromExterior = toCoreExterior; break;
+                    case WallLocationLine.CoreInterior: fromExterior = toCoreExterior + coreThickness; break;
+                    case WallLocationLine.CoreCenterline: fromExterior = toCoreExterior + coreThickness / 2; break;
+                    default: return 0;
+                }
+                return wall.Width / 2 - fromExterior;
+            }
+            catch
+            {
+                return 0;
             }
         }
 
