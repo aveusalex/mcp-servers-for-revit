@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "2cc65ca823afd79df89ed22b0a3735d8fe4b125c43c4bac5230ef838537508f2",
+  "capabilityHash": "b77b1ea3478a21439acd74271c020ee941e08cd65e111bd2b2bd8c97826ed441",
   "tools": [
     {
       "name": "create_area",
@@ -487,6 +487,68 @@
             "description": "false (default): any failure rolls back the whole call. true: failed items are skipped and listed in failed[].",
             "type": "boolean",
             "default": false
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_or_update_levels",
+      "description": "Create levels or update existing ones (upsert by name, or rename an existing level given in level): elevation in mm, optional floor plan and ceiling plan. Names are checked for forbidden characters and collisions and read back. Changing an elevation moves everything on that level; the result lists how many elements and views depend on it. Plan views are not renamed. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Levels to create or update.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "description": "Level name. If a level with this name exists it is updated, otherwise created (unless level is given).",
+                  "type": "string"
+                },
+                "level": {
+                  "description": "Existing level to update (name or id); it is renamed to name. Omit to match by name.",
+                  "type": "string"
+                },
+                "elevation": {
+                  "description": "Elevation in mm, as shown on the level head (relative to the level type's elevation base). Required to create.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "createPlanView": {
+                  "description": "Create a floor plan for the level if it has none. Default: true for new levels, false for existing ones.",
+                  "type": "boolean"
+                },
+                "createCeilingPlan": {
+                  "description": "Create a reflected ceiling plan for the level if it has none. Default false.",
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "floorPlanType": {
+            "description": "Floor plan view type for new plans, by name. Default: the document's default floor plan type.",
+            "type": "string"
+          },
+          "ceilingPlanType": {
+            "description": "Ceiling plan view type for new plans, by name. Default: the document's default ceiling plan type.",
+            "type": "string"
           }
         },
         "required": [
@@ -1855,6 +1917,162 @@
             "default": false
           }
         },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "setup_project_levels",
+      "description": "Declarative project level setup: describe the floors (name + finished elevation in mm) and the tool derives finished (AC), structure (ES = AC - finishThickness) and ceiling (FO = AC + ceilingHeight) levels plus site levels, compares them with the model and returns a plan per level: create, adjust (elevation), rename, keep, extra or remove. Run with dryRun first to show the plan. Removing levels deletes their views and hosted elements and needs removeUnlisted + confirmRemove. One Ctrl+Z undoes the call.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "architecture",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "floors": {
+            "description": "Floors (pavimentos) from bottom to top with their finished elevation.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "description": "Floor (pavimento) name used in the level names, e.g. \"Térreo\", \"Pavimento Tipo\", \"Cobertura\".",
+                  "type": "string"
+                },
+                "finishedElevation": {
+                  "description": "Finished floor elevation (AC, piso acabado) in mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "code": {
+                  "description": "Optional code for {code} in nameTemplate (e.g. \"N01\"). Default: the floor's position, 2 digits.",
+                  "type": "string"
+                },
+                "finishThickness": {
+                  "description": "Overrides finishThickness for this floor (mm).",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "x-unit": "mm"
+                },
+                "ceilingHeight": {
+                  "description": "Overrides ceilingHeight for this floor (mm).",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 50000,
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "name",
+                "finishedElevation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "kinds": {
+            "description": "Which levels each floor gets. Default [finished, structure, ceiling] (AC, ES, FO).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "finished",
+                "structure",
+                "ceiling"
+              ]
+            }
+          },
+          "finishThickness": {
+            "description": "Floor finish build-up in mm: structure level = finished - finishThickness. Required when kinds include structure.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2000,
+            "x-unit": "mm"
+          },
+          "ceilingHeight": {
+            "description": "Ceiling height above the finished floor in mm: ceiling level = finished + ceilingHeight. Required when kinds include ceiling.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 50000,
+            "x-unit": "mm"
+          },
+          "labels": {
+            "description": "Labels for {kind} in nameTemplate. Default AC / ES / FO.",
+            "type": "object",
+            "properties": {
+              "finished": {
+                "description": "Label of the finished-floor level (default \"AC\").",
+                "type": "string",
+                "default": "AC"
+              },
+              "structure": {
+                "description": "Label of the structure (top of slab) level (default \"ES\").",
+                "type": "string",
+                "default": "ES"
+              },
+              "ceiling": {
+                "description": "Label of the ceiling level (default \"FO\").",
+                "type": "string",
+                "default": "FO"
+              }
+            },
+            "additionalProperties": false
+          },
+          "nameTemplate": {
+            "description": "Level name pattern with {floor}, {kind}, {code} and {index} (1-based, 2 digits). Default \"{floor} - {kind}\". Follow the office naming (get_office_knowledge).",
+            "type": "string",
+            "default": "{floor} - {kind}"
+          },
+          "siteLevels": {
+            "description": "Extra levels used as is: terrain, sidewalk (calçada), platforms.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "description": "Level name, used as is (e.g. \"Terreno\", \"Calçada\").",
+                  "type": "string"
+                },
+                "elevation": {
+                  "description": "Elevation in mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                }
+              },
+              "required": [
+                "name",
+                "elevation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "adoptByElevation": {
+            "description": "Rename an unmatched existing level that sits at a wanted elevation (±1 mm) instead of creating a duplicate (e.g. the template's \"Nível 1\"). Default true.",
+            "type": "boolean",
+            "default": true
+          },
+          "removeUnlisted": {
+            "description": "Plan to delete existing levels that are not in the setup. Default false (they are reported as extra and kept).",
+            "type": "boolean",
+            "default": false
+          },
+          "confirmRemove": {
+            "description": "Required to actually delete levels (and the views and elements hosted on them). Without it a plan with removals is refused outside dryRun.",
+            "type": "boolean",
+            "default": false
+          },
+          "createPlanViews": {
+            "description": "Create a floor plan for finished levels and a ceiling plan for ceiling levels when missing. Default true.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "floors"
+        ],
         "additionalProperties": false
       }
     }
