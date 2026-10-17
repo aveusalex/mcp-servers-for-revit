@@ -1,10 +1,14 @@
 ﻿using Autodesk.Revit.UI;
+using Newtonsoft.Json.Linq;
 using RevitMCPSDK.API.Interfaces;
 using RevitMCPSDK.API.Utils;
 using revit_mcp_plugin.Configuration;
 using revit_mcp_plugin.Utils;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 namespace revit_mcp_plugin.Core
@@ -90,7 +94,144 @@ namespace revit_mcp_plugin.Core
                 }
             }
 
+            // Framework tools ([McpTool] classes) register themselves: no command.json entry or enabling needed.
+            LoadFrameworkTools(currentVersion);
+
             _logger.Info("命令加载完成\nCommand loading complete.");
+        }
+
+        // --- framework tools (Phase 0) ---------------------------------------------
+
+        private const string ToolRegistryTypeName = "RevitMCPCommandSet.Framework.ToolRegistry";
+        private static readonly object ManifestLock = new object();
+        private static JToken _toolsManifest;
+
+        /// <summary>
+        /// Registers the framework tools of every command-set assembly that has a ToolRegistry. Uses reflection
+        /// only: the plugin shares no compile-time type with the command set. Tool names that a legacy command
+        /// already registered are left to the framework tool (it is the newer implementation).
+        /// </summary>
+        private void LoadFrameworkTools(string revitVersion)
+        {
+            foreach (var assembly in LoadCommandSetAssemblies(revitVersion, _configManager, _logger))
+            {
+                try
+                {
+                    var registryType = assembly.GetType(ToolRegistryTypeName, false);
+                    var create = registryType?.GetMethod("CreateCommands", BindingFlags.Public | BindingFlags.Static,
+                        null, new[] { typeof(UIApplication) }, null);
+                    if (create == null) continue;
+
+                    int count = 0;
+                    if (create.Invoke(null, new object[] { _uiApplication }) is IEnumerable commands)
+                    {
+                        foreach (var item in commands)
+                        {
+                            if (item is IRevitCommand command)
+                            {
+                                _commandRegistry.RegisterCommand(command);
+                                count++;
+                            }
+                        }
+                    }
+                    _logger.Info("Registered {0} framework tool(s) from {1}", count, assembly.GetName().Name);
+
+                    var manifest = ReadManifest(registryType);
+                    if (manifest != null)
+                    {
+                        lock (ManifestLock) { _toolsManifest = manifest; }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("Failed to register framework tools from {0}: {1}",
+                        assembly.GetName().Name, (ex.InnerException ?? ex).Message);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The tools manifest (Contract D) sent to the broker in <c>register</c>, or null when no command set
+        /// with framework tools is installed. Safe from any thread; loads the command-set assembly on first use
+        /// so the manifest is available even before the command registry is loaded on Revit's thread.
+        /// </summary>
+        public static JToken GetToolsManifest(string revitVersion)
+        {
+            lock (ManifestLock)
+            {
+                if (_toolsManifest != null) return _toolsManifest;
+            }
+
+            if (string.IsNullOrEmpty(revitVersion) || revitVersion == "unknown") return null;
+
+            try
+            {
+                foreach (var assembly in LoadCommandSetAssemblies(revitVersion, null, null))
+                {
+                    var manifest = ReadManifest(assembly.GetType(ToolRegistryTypeName, false));
+                    if (manifest == null) continue;
+                    lock (ManifestLock) { _toolsManifest = _toolsManifest ?? manifest; return _toolsManifest; }
+                }
+            }
+            catch
+            {
+                // No manifest is better than a failed registration.
+            }
+            return null;
+        }
+
+        private static JToken ReadManifest(Type registryType)
+        {
+            var method = registryType?.GetMethod("GetManifestJson", BindingFlags.Public | BindingFlags.Static,
+                null, Type.EmptyTypes, null);
+            return method?.Invoke(null, null) is string json ? JToken.Parse(json) : null;
+        }
+
+        /// <summary>
+        /// Command-set assemblies to scan: the ones command.json points to, plus the conventional
+        /// <c>Commands\&lt;Set&gt;\&lt;version&gt;\&lt;Set&gt;.dll</c> layout, so a set ships framework tools without any
+        /// command.json entry.
+        /// </summary>
+        private static List<Assembly> LoadCommandSetAssemblies(string revitVersion, ConfigurationManager config, ILogger logger)
+        {
+            var paths = new List<string>();
+            string baseDir = PathManager.GetCommandsDirectoryPath();
+
+            if (config?.Config?.Commands != null)
+            {
+                foreach (var command in config.Config.Commands)
+                {
+                    if (string.IsNullOrEmpty(command.AssemblyPath)) continue;
+                    string path = command.AssemblyPath.Replace("{VERSION}", revitVersion);
+                    if (!Path.IsPathRooted(path)) path = Path.Combine(baseDir, path);
+                    paths.Add(path);
+                }
+            }
+
+            if (Directory.Exists(baseDir))
+            {
+                foreach (var setDir in Directory.GetDirectories(baseDir))
+                {
+                    string setName = Path.GetFileName(setDir);
+                    paths.Add(Path.Combine(setDir, revitVersion, setName + ".dll"));
+                }
+            }
+
+            var result = new List<Assembly>();
+            foreach (var path in paths.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!File.Exists(path)) continue;
+                try
+                {
+                    var assembly = Assembly.LoadFrom(path);
+                    if (!result.Contains(assembly)) result.Add(assembly);
+                }
+                catch (Exception ex)
+                {
+                    logger?.Warning("Could not load command set {0}: {1}", path, ex.Message);
+                }
+            }
+            return result;
         }
 
         /// <summary>
@@ -129,7 +270,10 @@ namespace revit_mcp_plugin.Core
                 {
                     if (typeof(RevitMCPSDK.API.Interfaces.IRevitCommand).IsAssignableFrom(type) &&
                         !type.IsInterface &&
-                        !type.IsAbstract)
+                        !type.IsAbstract &&
+                        // Framework tool adapters are built by ToolRegistry.CreateCommands, not here.
+                        (type.GetConstructor(Type.EmptyTypes) != null ||
+                         type.GetConstructor(new[] { typeof(UIApplication) }) != null))
                     {
                         try
                         {

@@ -452,6 +452,7 @@ namespace revit_mcp_plugin.Core
                 ["revitVersion"] = DocumentSessionManager.Instance.RevitVersion,
                 ["documents"] = JArray.FromObject(DocumentSessionManager.Instance.BuildDocumentList()),
             };
+            if (type == "register") payload["tools"] = CommandManager.GetToolsManifest(DocumentSessionManager.Instance.RevitVersion) ?? JValue.CreateNull();
             await SendRawAsync(payload.ToString(Formatting.None));
         }
 
