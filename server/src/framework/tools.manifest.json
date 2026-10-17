@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "ad99d6957931c00c82c4c34a81033ee257581b38c37ee3e2cd6cbd16c14d35f7",
+  "capabilityHash": "e4898ec89fd33adcaad12c3757f432536b871b49610de82713e5331eafaf0071",
   "tools": [
     {
       "name": "create_schedule",
@@ -315,6 +315,222 @@
         },
         "required": [
           "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_text_note",
+      "description": "Create text notes in a view or sheet (batch): text, position in the view plane in mm (plans: model X/Y; sections/elevations: horizontal coordinate and elevation), text type by name, wrap width in paper mm, rotation in degrees and alignment. One transaction, all or nothing. Returns the note ids and positions read back. Undo: Ctrl+Z or delete the returned ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View or sheet to place the notes in (name or id).",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Notes to create, up to 200.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "description": "Text of the note (\\n for line breaks).",
+                  "type": "string"
+                },
+                "position": {
+                  "description": "Insertion point in the view plane (mm). Plans: model X/Y; sections/elevations: horizontal coordinate and elevation; sheets/drafting: sheet/view coordinates.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "textType": {
+                  "description": "Text type name or id (e.g. \"2.5mm Arial\"). Default: the document's default text type.",
+                  "type": "string"
+                },
+                "widthMm": {
+                  "description": "Wrap width on paper (as printed). Omit for a single line that grows with the text. Unit: mm.",
+                  "type": "number",
+                  "x-unit": "mm"
+                },
+                "rotationDeg": {
+                  "description": "Rotation in the view plane, counter-clockwise (default 0). Unit: deg.",
+                  "type": "number",
+                  "x-unit": "deg",
+                  "default": 0
+                },
+                "hAlign": {
+                  "description": "Horizontal alignment (default left).",
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ],
+                  "default": "left"
+                },
+                "vAlign": {
+                  "description": "Vertical alignment relative to the insertion point (default top).",
+                  "type": "string",
+                  "enum": [
+                    "top",
+                    "middle",
+                    "bottom"
+                  ],
+                  "default": "top"
+                }
+              },
+              "required": [
+                "text",
+                "position"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "view",
+          "notes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "dimension_elements",
+      "description": "Create an aligned chain dimension between parallel walls (exterior/interior face), grids, reference planes or family instance references (center, left/right, front/back) in a plan, section or elevation. The dimension line is computed perpendicular to the targets (or given in the view plane in mm). Returns the dimension id and each segment value in mm, read back. Not for 3D views. Undo: Ctrl+Z or delete the returned id.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "Plan, section or elevation view (name or id). Not 3D views: Revit accepts the call there but draws nothing.",
+            "type": "string"
+          },
+          "targets": {
+            "description": "2 to 50 parallel elements to dimension, in any order (a chain dimension with one segment per gap).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "element": {
+                  "description": "Wall, grid, reference plane or family instance id.",
+                  "type": "integer"
+                },
+                "side": {
+                  "description": "Which reference: walls exterior (default) | interior face; family instances centerLeftRight (default) | centerFrontBack | left | right | front | back. Ignored for grids and reference planes.",
+                  "type": "string",
+                  "enum": [
+                    "exterior",
+                    "interior",
+                    "centerLeftRight",
+                    "centerFrontBack",
+                    "left",
+                    "right",
+                    "front",
+                    "back"
+                  ]
+                }
+              },
+              "required": [
+                "element"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "line": {
+            "description": "Dimension line in the view plane. Default: perpendicular to the targets, at offsetMm from the first target's midpoint.",
+            "type": "object",
+            "properties": {
+              "start": {
+                "description": "Start of the dimension line in the view plane (mm).",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              },
+              "end": {
+                "description": "End of the dimension line in the view plane (mm).",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  },
+                  "y": {
+                    "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                    "type": "number",
+                    "x-unit": "mm"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "start",
+              "end"
+            ],
+            "additionalProperties": false
+          },
+          "offsetMm": {
+            "description": "Default line only: distance along the targets' direction from the first target's midpoint (model mm, default 0).",
+            "type": "number",
+            "x-unit": "mm",
+            "default": 0
+          },
+          "dimensionType": {
+            "description": "Linear dimension type name or id. Default: the document's default.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view",
+          "targets"
         ],
         "additionalProperties": false
       }
@@ -1433,6 +1649,179 @@
             "default": false
           }
         },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "tag_all_in_view",
+      "description": "Tag every element of the given categories (any language) visible in a view, skipping the ones already tagged (local and linked tags detected). Rooms, areas and spaces get their own tags. Optional tag type per category, leader, orientation, elementIds and a limit per call. Elements that cannot be tagged are reported, not fatal. Use dryRun to see the counts first. Returns counts per category and the created tag ids. Undo: Ctrl+Z.",
+      "kind": "write",
+      "risk": "medium",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 120,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View to tag in (name or id): plan, ceiling plan, area plan, section, elevation or locked 3D view.",
+            "type": "string"
+          },
+          "categories": {
+            "description": "Categories to tag, in any language (OST_Doors, Doors, Portas, OST_Rooms...).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tagTypes": {
+            "description": "Tag type per category, e.g. {\"OST_Doors\": \"M_Door Tag: Standard\"}. Categories not listed use their default tag.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "skipTagged": {
+            "description": "Skip elements that already have a tag in this view (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "leader": {
+            "description": "Draw leaders (default false).",
+            "type": "boolean",
+            "default": false
+          },
+          "orientation": {
+            "description": "horizontal (default), vertical or model.",
+            "type": "string",
+            "enum": [
+              "horizontal",
+              "vertical",
+              "model"
+            ],
+            "default": "horizontal"
+          },
+          "elementIds": {
+            "description": "Only these elements (ids) among those visible in the view.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "limit": {
+            "description": "Maximum tags to create in this call, 1-5000 (default 1000). Run again to continue.",
+            "type": "integer",
+            "default": 1000
+          }
+        },
+        "required": [
+          "view",
+          "categories"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "tag_elements",
+      "description": "Tag specific elements in a view (any category; rooms, areas and spaces get room/area/space tags; elements of Revit links via \"linkInstanceId:elementId\"). Optional tag type (\"Family: Type\"), leader, orientation and placement in the view plane (mm) or offset. Skips already-tagged elements by default. One transaction; all or nothing unless continueOnError. Returns created tag ids. Undo: Ctrl+Z or delete the returned ids.",
+      "kind": "write",
+      "risk": "low",
+      "toolset": "annotation",
+      "batchable": true,
+      "idempotent": false,
+      "timeoutSeconds": 50,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "description": "View to tag in (name or id): plan, ceiling plan, section, elevation or locked 3D view.",
+            "type": "string"
+          },
+          "items": {
+            "description": "Elements to tag, up to 500.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "element": {
+                  "description": "Element to tag: id, UniqueId, or \"linkInstanceId:elementId\" for an element inside a Revit link.",
+                  "type": "string"
+                },
+                "tagType": {
+                  "description": "Tag type as \"Family: Type\", type name or id. Omit for the category's default tag.",
+                  "type": "string"
+                },
+                "leader": {
+                  "description": "Draw a leader (default false).",
+                  "type": "boolean",
+                  "default": false
+                },
+                "orientation": {
+                  "description": "horizontal (default), vertical or model (follows the element).",
+                  "type": "string",
+                  "enum": [
+                    "horizontal",
+                    "vertical",
+                    "model"
+                  ],
+                  "default": "horizontal"
+                },
+                "point": {
+                  "description": "Where to put the tag, in the view plane (mm). Default: the element's location point, curve middle or bounding-box centre.",
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "description": "Horizontal coordinate in the view plane. Plans: model X. Unit: mm.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    },
+                    "y": {
+                      "description": "Vertical coordinate in the view plane. Plans: model Y; sections/elevations: elevation Z. Unit: mm.",
+                      "type": "number",
+                      "x-unit": "mm"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "offsetX": {
+                  "description": "Shift from the default point along the view's horizontal direction (model mm).",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 0
+                },
+                "offsetY": {
+                  "description": "Shift from the default point along the view's vertical direction (model mm).",
+                  "type": "number",
+                  "x-unit": "mm",
+                  "default": 0
+                }
+              },
+              "required": [
+                "element"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "skipTagged": {
+            "description": "Skip elements that already have a tag in this view (default true).",
+            "type": "boolean",
+            "default": true
+          },
+          "continueOnError": {
+            "description": "false (default): any failure rolls back every tag of the call. true: failed items are listed in failed[] and the rest is kept.",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "view",
+          "items"
+        ],
         "additionalProperties": false
       }
     }
