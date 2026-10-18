@@ -272,6 +272,24 @@ Não habilite escrita em segundo plano ou ativação automática apenas para faz
 agente funcionar. Elas mudam o perfil de risco e exigem autorização do
 responsável técnico pelo modelo.
 
+### Modo de aprovação (escolha de quem usa)
+
+No Revit: aba **Complementos › Revit MCP Plugin › Settings › Modo de aprovação**.
+A escolha vale na hora, para o próximo comando; não precisa reiniciar nada.
+
+| Modo | O que acontece |
+|---|---|
+| **Perguntar antes de alterações importantes** (padrão) | Leituras e alterações simples rodam direto. Excluir, alterar em massa, trocar tipos, esticar o modelo, salvar e executar código abrem a janela de aprovação no Revit. |
+| **Automático: não perguntar** | Tudo roda sem interromper. Cada alteração continua sendo um passo de Ctrl+Z e fica na auditoria. Indicado para modelos de trabalho/teste ou quando a pessoa está acompanhando. |
+| **Somente leitura** | A IA só consulta; toda alteração é recusada (prévias continuam permitidas). |
+
+- A escolha fica em `%APPDATA%\revit-mcp\approval-mode.json` e só a tela do Revit a
+  grava: nenhuma ferramenta MCP troca o modo, para que a IA não possa desligar a
+  própria aprovação. Cada troca é registrada na auditoria (`approval_mode_changed`).
+- Sem o arquivo (ou com ele ilegível), vale `REVIT_MCP_APPROVAL` do broker e, na
+  falta dele, **Perguntar** (falha fechada).
+- A IA vê o modo em `get_session_context` (`approval.mode`).
+
 ## 10. Atualizar
 
 1. Feche todas as instâncias do Revit.

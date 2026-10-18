@@ -11,6 +11,7 @@ import {
   MAX_BATCH_STEPS,
   MAX_INFLIGHT_PER_MCP,
   approvalMode,
+  readApprovalSetting,
   auditParamsMode,
   loadOrCreateToken,
 } from "./config.js";
@@ -74,7 +75,10 @@ export class Broker {
     this.registry = new Registry(opts.sessionTtlMs);
 
     // An undefined option falls through to REVIT_MCP_APPROVAL (default param).
-    this.approvalMode = approvalMode(opts.approvalMode);
+    // An explicit option fixes the mode (tests, CI). Otherwise it is read live from the approval-mode file the
+    // person sets in Revit (Settings > Modo de aprovação), falling back to REVIT_MCP_APPROVAL / ask_first.
+    this._fixedApprovalMode = opts.approvalMode !== undefined ? approvalMode(opts.approvalMode) : null;
+    this._lastApprovalMode = null;
     this.auditParamsMode = opts.auditParamsMode ?? auditParamsMode();
     this.commandTimeoutMs = opts.commandTimeoutMs ?? COMMAND_TIMEOUT_MS;
     this.softTimeoutMs = opts.softTimeoutMs ?? null;
@@ -108,6 +112,17 @@ export class Broker {
 
     this._wss = null;
     this._sweepTimer = null;
+  }
+
+  /** Current approval mode (live: a change made in Revit applies to the next command). */
+  get approvalMode() {
+    const setting = this._fixedApprovalMode ? null : readApprovalSetting();
+    const mode = this._fixedApprovalMode ?? setting?.mode ?? approvalMode();
+    if (this._lastApprovalMode !== null && mode !== this._lastApprovalMode) {
+      this.audit.write({ event: "approval_mode_changed", from: this._lastApprovalMode, to: mode, changedBy: setting?.changedBy ?? null });
+    }
+    this._lastApprovalMode = mode;
+    return mode;
   }
 
   /** @returns {Promise<void>} resolves once listening (or rejects on EADDRINUSE). */
@@ -596,6 +611,11 @@ export class Broker {
 
   _finishJob(job, { result, error, stepResults, mode }) {
     if (job.status !== "running") return;
+    // The AI learns from get_session_context whether changes need the person's approval (the mode lives here).
+    if (job.command === "get_session_context" && result && typeof result === "object" && result.data && typeof result.data === "object") {
+      const setting = this._fixedApprovalMode ? null : readApprovalSetting();
+      result = { ...result, data: { ...result.data, approval: { mode: this.approvalMode, chosenInRevit: !!setting, changedAt: setting?.changedAt ?? null } } };
+    }
     clearTimeout(job.softTimer);
     const failed = isFailure(result, error);
     job.status = failed ? "failed" : "succeeded";
@@ -880,7 +900,15 @@ export class Broker {
         const r = await sendOne(`${cid}:${n}`, pending[n].tool, pending[n].args);
         const ok = !isFailure(r.result, r.error);
         stepResults.push({ index: pending[n].index, tool: pending[n].tool, ok, result: r.result, error: r.error });
-        if (!ok) firstError = r.error ?? { code: "STEP_FAILED", message: `Step ${pending[n].index} (${pending[n].tool}) failed` };
+        if (!ok) {
+          // The tool's own error is usually inside its envelope (result.error): surface it, with the step.
+          const inner = r.error ?? r.result?.error ?? null;
+          firstError = {
+            ...(inner ?? {}),
+            code: inner?.code ?? "STEP_FAILED",
+            message: `Step ${pending[n].index} (${pending[n].tool}) failed` + (inner?.message ? `: ${inner.message}` : ""),
+          };
+        }
       }
       return {
         mode,

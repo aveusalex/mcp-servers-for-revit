@@ -106,6 +106,9 @@ namespace RevitMCPCommandSet.Framework
                         preview.Start();
                     }
 
+                    var instance = tool.CreateInstance();
+                    int warningsBefore = ctx.Warnings.Count;
+                    for (int attempt = 1; ; attempt++)
                     using (var tx = new Transaction(doc, $"MCP: {tool.Name}"))
                     using (var late = LateFailureLog.Watch(doc))
                     {
@@ -113,7 +116,7 @@ namespace RevitMCPCommandSet.Framework
                         tx.Start();
                         try
                         {
-                            data = tool.CreateInstance().Invoke(ctx, args);
+                            data = instance.Invoke(ctx, args);
                         }
                         catch
                         {
@@ -122,6 +125,15 @@ namespace RevitMCPCommandSet.Framework
                         }
 
                         var status = tx.HasEnded() ? tx.GetStatus() : tx.Commit();
+                        if (status != TransactionStatus.Committed && attempt == 1 && instance is IRetryAfterRollback retry)
+                        {
+                            // The tool may know another way: drop the first attempt's errors (keeping them aside in
+                            // case it doesn't), let it explain the change of approach, and run it once more.
+                            var firstAttempt = ctx.Warnings.Skip(warningsBefore).ToList();
+                            while (ctx.Warnings.Count > warningsBefore) ctx.Warnings.RemoveAt(ctx.Warnings.Count - 1);
+                            if (retry.PrepareRetry(ctx, failures)) continue;
+                            foreach (var w in firstAttempt) ctx.Warnings.Add(w);
+                        }
                         if (status != TransactionStatus.Committed)
                         {
                             // Some failures reach FailuresProcessing without passing through the preprocessor.
@@ -133,6 +145,7 @@ namespace RevitMCPCommandSet.Framework
                                 $"Revit rejected the change and rolled it back: {why}",
                                 "Nothing was changed. Fix the cause reported by Revit (see warnings) and try again.");
                         }
+                        break;
                     }
                 }
 

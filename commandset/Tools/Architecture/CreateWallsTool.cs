@@ -90,7 +90,7 @@ namespace RevitMCPCommandSet.Tools.Architecture
 
         [JsonProperty("joinEnds")]
         [DefaultValue(true)]
-        [Description("Let the walls join at their ends (corners). Default true.")]
+        [Description("Let the walls join at their ends (corners). Default true. If joining a new wall to an existing one would invalidate the user's dimensions, the call is redone without joining to existing walls (the new walls' own corners stay joined) and a warning says so.")]
         public bool JoinEnds { get; set; } = true;
     }
 
@@ -116,8 +116,23 @@ namespace RevitMCPCommandSet.Tools.Architecture
                       "height. locationLine says which face/centreline sits on the points (e.g. finishFaceInterior to " +
                       "draw the inner outline of a room); closed shapes put the exterior face outside. Returns ids, " +
                       "lengths and the read-back constraints. One Ctrl+Z undoes the call.")]
-    public sealed class CreateWallsTool : McpTool<CreateWallsArgs>
+    public sealed class CreateWallsTool : McpTool<CreateWallsArgs>, IRetryAfterRollback
     {
+        // Second attempt after Revit rejected the first because joining to existing walls broke dimensions.
+        private bool _avoidJoinsToExisting;
+        private CreateWallsArgs _args;
+
+        public bool PrepareRetry(ToolContext ctx, SafeFailuresPreprocessor failures)
+        {
+            if (_avoidJoinsToExisting || !failures.OnlyDimensionErrors || _args?.Items == null || !_args.Items.Any(i => i.JoinEnds))
+                return false;
+            _avoidJoinsToExisting = true;
+            ctx.Warnings.Add(new ToolWarning(
+                "Joining the new walls to existing ones would have invalidated dimensions in the model, so the new walls " +
+                "were created without joining to existing walls (their own corners are joined). Join them by hand where needed."));
+            return true;
+        }
+
         protected override void Validate(CreateWallsArgs args)
         {
             for (int i = 0; i < args.Items.Count; i++)
@@ -145,9 +160,15 @@ namespace RevitMCPCommandSet.Tools.Architecture
         protected override object Run(ToolContext ctx, CreateWallsArgs args)
         {
             var doc = ctx.Doc;
+            _args = args;
             int walls = 0;
+            var existing = _avoidJoinsToExisting
+                ? new FilteredElementCollector(doc).OfClass(typeof(Wall)).Cast<Wall>().ToList()
+                : null;
+            var existingIds = existing == null ? null : new HashSet<long>(existing.Select(w => w.Id.GetValue()));
             var outcome = ItemRunner.Run(doc, args.Items, args.ContinueOnError, "Wall item",
                 (item, index) => CreateItem(ctx, item, index, n => walls += n));
+            if (_avoidJoinsToExisting) KeepAwayFromExisting(doc, existing, existingIds);
             return new
             {
                 created = outcome.Created,
@@ -156,6 +177,25 @@ namespace RevitMCPCommandSet.Tools.Architecture
                 wallCount = walls,
                 failedCount = outcome.Failed.Count
             };
+        }
+
+        /// <summary>Disallow the join at each end of a new wall that touches a wall that existed before this call.</summary>
+        private static void KeepAwayFromExisting(Document doc, List<Wall> existing, HashSet<long> existingIds)
+        {
+            var created = new FilteredElementCollector(doc).OfClass(typeof(Wall)).Cast<Wall>()
+                .Where(w => !existingIds.Contains(w.Id.GetValue())).ToList();
+            foreach (var wall in created)
+            {
+                if (!(wall.Location is LocationCurve lc)) continue;
+                for (int end = 0; end < 2; end++)
+                {
+                    var p = lc.Curve.GetEndPoint(end);
+                    bool touches = existing.Any(o => o.Location is LocationCurve olc &&
+                        olc.Curve.Distance(new XYZ(p.X, p.Y, olc.Curve.GetEndPoint(0).Z)) <= (o.Width + wall.Width) / 2 + 1e-3);
+                    if (touches && WallUtils.IsWallJoinAllowedAtEnd(wall, end)) WallUtils.DisallowWallJoinAtEnd(wall, end);
+                }
+            }
+            doc.Regenerate();
         }
 
         private static object CreateItem(ToolContext ctx, WallItem item, int index, Action<int> count)

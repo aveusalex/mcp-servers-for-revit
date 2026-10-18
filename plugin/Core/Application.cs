@@ -23,7 +23,7 @@ namespace revit_mcp_plugin.Core
 
             PushButtonData mcp_settings_pushButtonData = new PushButtonData("ID_EXCMD_MCP_SETTINGS", "Settings",
                 Assembly.GetExecutingAssembly().Location, "revit_mcp_plugin.Core.Settings");
-            mcp_settings_pushButtonData.ToolTip = "MCP Settings";
+            mcp_settings_pushButtonData.ToolTip = "Configurações: modo de aprovação (perguntar / automático / somente leitura) e comandos.";
             mcp_settings_pushButtonData.Image = new BitmapImage(new Uri("/RevitMCPPlugin;component/Core/Ressources/settings-16.png", UriKind.RelativeOrAbsolute));
             mcp_settings_pushButtonData.LargeImage = new BitmapImage(new Uri("/RevitMCPPlugin;component/Core/Ressources/settings-32.png", UriKind.RelativeOrAbsolute));
             mcpPanel.AddItem(mcp_settings_pushButtonData);

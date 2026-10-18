@@ -25,9 +25,17 @@ namespace RevitMCPCommandSet.Framework
 
         public bool HadErrors => _errors.Count > 0;
 
+        /// <summary>True when every error was about dimensions whose references the change invalidated.</summary>
+        public bool OnlyDimensionErrors { get; private set; }
+
+        /// <summary>Ids of the dimensions named by those errors.</summary>
+        public List<long> FailingDimensionIds { get; } = new List<long>();
+
         public FailureProcessingResult PreprocessFailures(FailuresAccessor accessor)
         {
             bool hasError = false;
+            bool allDimensions = true;
+            var doc = accessor.GetDocument();
             foreach (var failure in accessor.GetFailureMessages())
             {
                 var severity = failure.GetSeverity();
@@ -43,6 +51,11 @@ namespace RevitMCPCommandSet.Framework
                 {
                     hasError = true;
                     _errors.Add(text);
+                    var failing = SafeIds(failure);
+                    if (failing == null || failing.Count == 0 ||
+                        !failing.All(id => doc.GetElement(id.ToRevitElementId()) is Dimension))
+                        allDimensions = false;
+                    else FailingDimensionIds.AddRange(failing.Where(id => !FailingDimensionIds.Contains(id)));
                     _warnings.Add(new ToolWarning(text, ids, "error"));
                 }
             }
@@ -51,6 +64,7 @@ namespace RevitMCPCommandSet.Framework
             {
                 return FailureProcessingResult.Continue;
             }
+            OnlyDimensionErrors = allDimensions;
 
             var options = accessor.GetFailureHandlingOptions();
             options.SetClearAfterRollback(true);

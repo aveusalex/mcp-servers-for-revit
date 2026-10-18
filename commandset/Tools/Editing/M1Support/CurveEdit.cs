@@ -16,14 +16,20 @@ namespace RevitMCPCommandSet.Tools.Editing.M1Support
     /// </summary>
     public static class CurveEdit
     {
+        /// <summary>
+        /// A copy of the element's curve. Revit hands out live curve objects: after the element changes (or is
+        /// recreated) the original becomes invalid and reading it throws InternalException, so never keep it.
+        /// </summary>
         public static Curve Get(Element e)
         {
+            Curve live;
             switch (e)
             {
-                case CurveElement ce: return ce.GeometryCurve;
-                case Grid g: return g.Curve;
+                case CurveElement ce: live = ce.GeometryCurve; break;
+                case Grid g: live = g.Curve; break;
+                default: live = (e.Location as LocationCurve)?.Curve; break;
             }
-            return (e.Location as LocationCurve)?.Curve;
+            return live?.Clone();
         }
 
         public static Curve Require(Element e)

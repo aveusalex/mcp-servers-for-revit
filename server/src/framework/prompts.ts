@@ -31,9 +31,12 @@ Convenções (valem para todo o roteiro):
 - Antes de qualquer escrita, rode a ferramenta com dryRun:true (prévia: o Revit executa e desfaz, nada muda) e
   mostre ao usuário o que vai acontecer. Algumas ferramentas em massa já fazem só a prévia por padrão: para aplicar,
   passe dryRun:false.
-- Ferramentas de risco médio ou alto respondem APPROVAL_REQUIRED: monte o plano com \`propose_change_plan\` (o hint
-  da resposta traz o passo exato), espere com \`wait_for_plan_decision\` e só então rode \`execute_plan\`. Nunca
-  contorne a aprovação.
+- O modo de aprovação vem em \`get_session_context\` (approval.mode) e é escolhido pela pessoa no Revit:
+  ask_first = ferramentas de risco médio ou alto respondem APPROVAL_REQUIRED: monte o plano com
+  \`propose_change_plan\` (o hint da resposta traz o passo exato), espere com \`wait_for_plan_decision\` e só então
+  rode \`execute_plan\`; auto = a pessoa pediu para não ser interrompida: as ferramentas rodam direto, mas rode a
+  prévia (dryRun) antes de mudanças grandes e diga o que foi feito; look_only = só consultas. Nunca contorne a
+  aprovação nem peça para trocar o modo só para evitá-la.
 - Leia de volta o que foi feito (ids, áreas, nomes) e confira com o que foi pedido.
 - Para desfazer: \`get_undo_history\` mostra o último passo; \`undo_last\` desfaz um passo do MCP (pede aprovação).
 - Padrões do escritório (nomes, folhas, parâmetros): \`get_office_knowledge\`.

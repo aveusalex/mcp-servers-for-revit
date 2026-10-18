@@ -63,6 +63,37 @@ export function approvalMode(value = process.env.REVIT_MCP_APPROVAL) {
   return "ask_first";
 }
 
+/** File where the person's choice of approval mode is kept (written by the Revit add-in, never by a tool). */
+export const APPROVAL_FILE = () => path.join(stateDir(), "approval-mode.json");
+
+/**
+ * The approval mode chosen in Revit, or null when none was chosen (or the file is unreadable: then the
+ * environment / ask_first default applies, which is the fail-closed side). Re-read only when the file changes.
+ */
+let approvalCache = { mtimeMs: -1, value: null };
+export function readApprovalSetting(file = APPROVAL_FILE()) {
+  let stat;
+  try {
+    stat = fs.statSync(file);
+  } catch {
+    approvalCache = { mtimeMs: -1, value: null };
+    return null;
+  }
+  if (stat.mtimeMs === approvalCache.mtimeMs) return approvalCache.value;
+  let value = null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
+    const mode = String(raw?.mode ?? "").trim().toLowerCase();
+    if (mode === "ask_first" || mode === "auto" || mode === "look_only") {
+      value = { mode, changedBy: raw.changedBy ?? null, changedAt: raw.changedAt ?? null };
+    }
+  } catch {
+    value = null;
+  }
+  approvalCache = { mtimeMs: stat.mtimeMs, value };
+  return value;
+}
+
 /** How command params are written to the audit log: hash (default) | full. */
 export function auditParamsMode(value = process.env.REVIT_MCP_AUDIT_PARAMS) {
   return String(value ?? "").trim().toLowerCase() === "full" ? "full" : "hash";

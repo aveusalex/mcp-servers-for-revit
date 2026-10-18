@@ -111,7 +111,8 @@ namespace RevitMCPCommandSet.Tools.Annotation
             int total = 0, removedTotal = 0;
             foreach (var view in views)
             {
-                int removed = a.Clear ? ClearTags(doc, view, memberIds) : 0;
+                var materialNames = new HashSet<string>(members.Select(MainMaterial).Where(m => m != null).Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
+                int removed = a.Clear ? ClearTags(doc, view, memberIds, materialNames) : 0;
                 removedTotal += removed;
                 var tagged = TagSupport.TaggedKeys(doc, view);
                 var visible = members.Where(e => !e.IsHidden(view) && e.get_BoundingBox(view) != null).ToList();
@@ -140,7 +141,8 @@ namespace RevitMCPCommandSet.Tools.Annotation
                 {
                     var t = ordered[i];
                     var key = (t.byMaterial ? TagSupport.MaterialPrefix : string.Empty) + TagSupport.Key(t.e.Id.GetValue(), null);
-                    if (tagged.Contains(key))
+                    // Material names written as notes (where Revit can't tag the material) count as tags too.
+                    if (tagged.Contains(key) || (t.byMaterial && HasMaterialNote(doc, view, t.label)))
                     {
                         skipped.Add(new { element = t.e.Id.GetValue(), label = t.label, kind = t.byMaterial ? "material" : "piece", reason = "already tagged" });
                         continue;
@@ -313,9 +315,17 @@ namespace RevitMCPCommandSet.Tools.Annotation
             return (c.DotProduct(view.RightDirection), c.DotProduct(view.UpDirection));
         }
 
-        private static int ClearTags(Document doc, View view, HashSet<long> memberIds)
+        /// <summary>A text note with this exact text and a leader in the view: one this tool wrote for a material.</summary>
+        private static bool HasMaterialNote(Document doc, View view, string text) =>
+            new FilteredElementCollector(doc, view.Id).OfClass(typeof(TextNote)).Cast<TextNote>()
+                .Any(n => n.LeaderCount > 0 && string.Equals((n.Text ?? string.Empty).Trim(), text, StringComparison.OrdinalIgnoreCase));
+
+        private static int ClearTags(Document doc, View view, HashSet<long> memberIds, HashSet<string> materialNames)
         {
             var ids = new List<ElementId>();
+            // Material notes written by this tool: a leader and exactly a member's material name.
+            foreach (TextNote note in new FilteredElementCollector(doc, view.Id).OfClass(typeof(TextNote)))
+                if (note.LeaderCount > 0 && materialNames.Contains((note.Text ?? string.Empty).Trim())) ids.Add(note.Id);
             foreach (IndependentTag tag in new FilteredElementCollector(doc, view.Id).OfClass(typeof(IndependentTag)))
             {
                 try

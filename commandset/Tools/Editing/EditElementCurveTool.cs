@@ -74,8 +74,22 @@ namespace RevitMCPCommandSet.Tools.Editing
                       "sideways (move or copy). All in mm. Wall joins are released during the change; if Revit still " +
                       "refuses, a wall without inserts is recreated (new id, reported). Returns before/after read back. " +
                       "Undo: Ctrl+Z.")]
-    public sealed class EditElementCurveTool : McpTool<EditElementCurveArgs>
+    public sealed class EditElementCurveTool : McpTool<EditElementCurveArgs>, IRetryAfterRollback
     {
+        // Dimensions that only fail because the edit moves the faces they measure: removed on the second attempt, as
+        // Revit's own dialog offers. The person asked for the new geometry; the dimensions are listed in a warning.
+        private List<long> _dimensionsToRemove;
+
+        public bool PrepareRetry(ToolContext ctx, SafeFailuresPreprocessor failures)
+        {
+            if (_dimensionsToRemove != null || !failures.OnlyDimensionErrors || failures.FailingDimensionIds.Count == 0) return false;
+            _dimensionsToRemove = failures.FailingDimensionIds.ToList();
+            ctx.Warnings.Add(new ToolWarning(
+                $"{_dimensionsToRemove.Count} dimension(s) measured the faces this edit moves and could no longer be kept " +
+                "(Revit refuses them), so they were removed; redraw them if needed.", _dimensionsToRemove));
+            return true;
+        }
+
         protected override void Validate(EditElementCurveArgs a)
         {
             int n = a.ElementIds.Distinct().Count();
@@ -114,6 +128,8 @@ namespace RevitMCPCommandSet.Tools.Editing
         protected override object Run(ToolContext ctx, EditElementCurveArgs a)
         {
             var doc = ctx.Doc;
+            if (_dimensionsToRemove != null)
+                doc.Delete(_dimensionsToRemove.Select(id => id.ToRevitElementId()).Where(id => doc.GetElement(id) != null).ToList());
             var elements = EditGeometry.Elements(doc, a.ElementIds);
             M1Elements.RefusePinned(elements, "edited");
             M1Elements.RefuseGroupMembers(elements, "edited");
