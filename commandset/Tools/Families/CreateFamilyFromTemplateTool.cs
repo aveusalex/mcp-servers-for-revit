@@ -99,6 +99,11 @@ namespace RevitMCPCommandSet.Tools.Families
         [Description("Name of a material parameter bound to the extrusion. Default \"Material\"; empty string = none.")]
         public string MaterialParameter { get; set; } = "Material";
 
+        [JsonProperty("void")]
+        [DefaultValue(false)]
+        [Description("true: an unattached VOID extrusion instead of a solid, with 'Cut with voids when loaded' on: a cutting family (sink or cooktop cutout, opening) to use with create_void_cut. No material parameter. Default false.")]
+        public bool Void { get; set; }
+
         [JsonProperty("instanceParameters")]
         [DefaultValue(false)]
         [Description("Make the parameters instance parameters (default false: type parameters).")]
@@ -126,8 +131,8 @@ namespace RevitMCPCommandSet.Tools.Families
 
     /// <summary>FAM-16: simple parametric box (or polygon) family from a template, saved and optionally loaded.</summary>
     [McpTool("create_family_from_template", Kind = ToolKind.Write, Risk = Risk.Medium, Toolset = "families", Batchable = false, TimeoutSeconds = 300,
-        Description = "Create a loadable family from an installed .rft template (criar família / extrusão travada): a solid " +
-                      "extrusion from a centered rectangle (width x depth) or a polygon, with height, width and depth " +
+        Description = "Create a loadable family from an installed .rft template (criar família / extrusão travada / vazio de corte): a solid " +
+                      "(or, with void:true, an unattached void for create_void_cut) extrusion from a centered rectangle (width x depth) or a polygon, with height, width and depth " +
                       "length parameters (pt-BR names by default) and a material parameter. For the rectangle, reference " +
                       "planes are added, the faces are locked to them, labeled dimensions drive width/depth and EQ " +
                       "dimensions keep it centered; height drives the extrusion end. A flex test reports which parameters " +
@@ -234,7 +239,7 @@ namespace RevitMCPCommandSet.Tools.Families
                     }
                     var profile = new CurveArrArray();
                     profile.Append(loop);
-                    try { extrusion = fam.FamilyCreate.NewExtrusion(true, profile, sketch, h); }
+                    try { extrusion = fam.FamilyCreate.NewExtrusion(!a.Void, profile, sketch, h); }
                     catch (Autodesk.Revit.Exceptions.ApplicationException ex)
                     {
                         throw new ToolException("INVALID_GEOMETRY", $"Revit could not extrude the profile: {ex.Message}", "Check the polygon is closed and does not self-intersect.");
@@ -245,7 +250,14 @@ namespace RevitMCPCommandSet.Tools.Families
                     mgr.Set(ph, h);
                     mgr.AssociateElementParameterToFamilyParameter(extrusion.get_Parameter(BuiltInParameter.EXTRUSION_END_PARAM), ph);
                     locks["height"] = "extrusion end bound to " + ph.Definition.Name;
-                    if (!string.IsNullOrWhiteSpace(a.MaterialParameter))
+                    if (a.Void)
+                    {
+                        // Unattached void: it only cuts hosts it is applied to (create_void_cut) once this is on.
+                        var cut = fam.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_ALLOW_CUT_WITH_VOIDS);
+                        if (cut != null && !cut.IsReadOnly) cut.Set(1);
+                        else notes.Add("This template does not allow 'Cut with voids when loaded'; the void may not cut hosts.");
+                    }
+                    else if (!string.IsNullOrWhiteSpace(a.MaterialParameter))
                     {
                         pm = Param(mgr, a.MaterialParameter, GroupTypeId.Materials, SpecTypeId.Reference.Material, a.InstanceParameters);
                         mgr.AssociateElementParameterToFamilyParameter(extrusion.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM), pm);
