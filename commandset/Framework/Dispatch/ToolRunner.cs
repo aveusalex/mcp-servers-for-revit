@@ -55,7 +55,7 @@ namespace RevitMCPCommandSet.Framework
 
                     case ToolKind.Write:
                         data = tool.SelfTransacted
-                            ? tool.CreateInstance().Invoke(ctx, args)
+                            ? RunSelfTransacted(ctx, tool, args)
                             : RunInTransaction(ctx, tool, args, insideGroup);
                         break;
 
@@ -148,6 +148,23 @@ namespace RevitMCPCommandSet.Framework
                     // Revit raises no DocumentChanged for a rolled-back group: forget the preview's commits.
                     RevitMCPCommandSet.Tools.Query.Support.SessionChangeLog.DiscardSince(doc, logMark);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Self-transacted tools (stretch_model, manage_assembly, execute_batch...) roll their own group back on dryRun;
+        /// Revit raises no DocumentChanged for that, so forget the preview's commits here too.
+        /// </summary>
+        private static object RunSelfTransacted(ToolContext ctx, ToolDescriptor tool, JObject args)
+        {
+            long logMark = RevitMCPCommandSet.Tools.Query.Support.SessionChangeLog.CurrentSeq;
+            try
+            {
+                return tool.CreateInstance().Invoke(ctx, args);
+            }
+            finally
+            {
+                if (ctx.DryRun) RevitMCPCommandSet.Tools.Query.Support.SessionChangeLog.DiscardSince(ctx.Doc, logMark);
             }
         }
 
