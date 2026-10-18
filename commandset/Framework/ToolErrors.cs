@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace RevitMCPCommandSet.Framework
 {
@@ -27,6 +28,30 @@ namespace RevitMCPCommandSet.Framework
     /// <summary>Maps exceptions to the result envelope. Only <see cref="ToolException"/> is an "expected" failure.</summary>
     public static class ToolErrors
     {
+        /// <summary>
+        /// " (in Revit's X, called from our Y)": the API method that threw and the add-in method that called it, so an
+        /// unexpected failure can be located without a debugger.
+        /// </summary>
+        private static string Where(Exception ex)
+        {
+            try
+            {
+                var frames = new System.Diagnostics.StackTrace(ex, false).GetFrames();
+                if (frames == null || frames.Length == 0) return string.Empty;
+                string api = ex.TargetSite?.Name;
+                string ours = frames.Select(f => f.GetMethod())
+                    .Where(m => m?.DeclaringType != null && m.DeclaringType.Namespace != null &&
+                                m.DeclaringType.Namespace.StartsWith("RevitMCPCommandSet", StringComparison.Ordinal))
+                    .Select(m => m.DeclaringType.Name + "." + m.Name).FirstOrDefault();
+                if (api == null && ours == null) return string.Empty;
+                return " (in " + (api ?? "?") + (ours != null ? ", called from " + ours : string.Empty) + ")";
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
         public static ToolError FromException(Exception ex)
         {
             if (ex is ToolException te)
@@ -54,7 +79,7 @@ namespace RevitMCPCommandSet.Framework
             return new ToolError
             {
                 Code = ToolErrorCodes.InternalError,
-                Message = $"{inner.GetType().Name}: {inner.Message}",
+                Message = $"{inner.GetType().Name}: {inner.Message}" + Where(inner),
                 Hint = "Unexpected failure inside the add-in. Any change made by this call was rolled back. " +
                        "Do not retry blindly; report the message to the user."
             };

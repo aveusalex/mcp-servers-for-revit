@@ -57,7 +57,9 @@ export const proposeChangePlan = defineServerTool<{ steps: PlanStep[]; summary: 
     "arguments (same names and units as the tool: mm, m2, m3, degrees; omit document and dryRun). The plan is " +
     "shown to the user in a window inside Revit with the affected elements; nothing changes until they approve. " +
     "Then call wait_for_plan_decision, and execute_plan once approved. A plan is bound to one document and " +
-    "expires 30 minutes after creation or approval. Low-risk edits do not need a plan.",
+    "expires 30 minutes after creation or approval. Low-risk edits do not need a plan. When get_session_context " +
+    "reports approval.mode = auto (the person chose not to be asked), medium/high tools run directly and plans are " +
+    "approved at once.",
   kind: "read",
   risk: "none",
   toolset: "core",

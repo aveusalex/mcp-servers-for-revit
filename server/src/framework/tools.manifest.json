@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "8bcbc5ab768d881cabe1d3576571595045b568c027d6affc8fecdf09be430d9f",
+  "capabilityHash": "cfdb7b09580d43411a415b31d2e8fb09beb2bb0676c182f048c33235948a5d89",
   "tools": [
     {
       "name": "activate_view",
@@ -5887,7 +5887,7 @@
                   "default": false
                 },
                 "joinEnds": {
-                  "description": "Let the walls join at their ends (corners). Default true.",
+                  "description": "Let the walls join at their ends (corners). Default true. If joining a new wall to an existing one would invalidate the user's dimensions, the call is redone without joining to existing walls (the new walls' own corners stay joined) and a warning says so.",
                   "type": "boolean",
                   "default": true
                 }

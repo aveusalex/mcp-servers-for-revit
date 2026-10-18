@@ -1,0 +1,36 @@
+<Page x:Class="revit_mcp_plugin.UI.ApprovalModePage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Title="Modo de aprovação">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="4">
+            <TextBlock Text="Modo de aprovação" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Foreground="#555" Margin="0,0,0,16"
+                       Text="Escolha quando a IA precisa da sua confirmação antes de alterar o modelo. A mudança vale na hora, para o próximo comando. Só você muda isto aqui: a IA não consegue trocar o modo sozinha."/>
+
+            <RadioButton x:Name="AskFirstOption" GroupName="Mode" Margin="0,0,0,4" Checked="Option_Checked">
+                <TextBlock Text="Perguntar antes de alterações importantes (recomendado)" FontWeight="SemiBold"/>
+            </RadioButton>
+            <TextBlock TextWrapping="Wrap" Foreground="#555" Margin="22,0,0,14"
+                       Text="Leituras e alterações simples (criar parede, ambiente, cota...) rodam direto. Excluir, alterar em massa, trocar tipos, esticar o modelo, salvar e executar código abrem uma janela aqui no Revit para você aprovar ou recusar."/>
+
+            <RadioButton x:Name="AutoOption" GroupName="Mode" Margin="0,0,0,4" Checked="Option_Checked">
+                <TextBlock Text="Automático: não perguntar" FontWeight="SemiBold"/>
+            </RadioButton>
+            <TextBlock TextWrapping="Wrap" Foreground="#555" Margin="22,0,0,4"
+                       Text="Tudo roda sem interromper você, inclusive exclusões e alterações em massa. Cada alteração continua sendo um passo que se desfaz com Ctrl+Z e fica registrada no histórico (%APPDATA%\revit-mcp\audit)."/>
+            <TextBlock TextWrapping="Wrap" Foreground="#B45309" Margin="22,0,0,14"
+                       Text="Use em modelos de trabalho/teste ou quando você estiver acompanhando. Salve o modelo antes de pedir mudanças grandes."/>
+
+            <RadioButton x:Name="LookOnlyOption" GroupName="Mode" Margin="0,0,0,4" Checked="Option_Checked">
+                <TextBlock Text="Somente leitura" FontWeight="SemiBold"/>
+            </RadioButton>
+            <TextBlock TextWrapping="Wrap" Foreground="#555" Margin="22,0,0,14"
+                       Text="A IA só consulta o modelo (listas, quantitativos, imagens, auditorias). Qualquer alteração é recusada. Prévias continuam permitidas, porque são desfeitas na hora."/>
+
+            <Border Background="#F3F4F6" CornerRadius="4" Padding="10" Margin="0,4,0,0">
+                <TextBlock x:Name="StatusText" TextWrapping="Wrap"/>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

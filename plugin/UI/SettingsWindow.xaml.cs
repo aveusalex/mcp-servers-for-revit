@@ -9,6 +9,7 @@ namespace revit_mcp_plugin.UI
     public partial class SettingsWindow : Window
     {
         private CommandSetSettingsPage commandSetPage;
+        private ApprovalModePage approvalModePage;
         private bool isInitialized = false;
 
         public SettingsWindow()
@@ -17,9 +18,10 @@ namespace revit_mcp_plugin.UI
 
             // 初始化页面
             commandSetPage = new CommandSetSettingsPage();
+            approvalModePage = new ApprovalModePage();
 
             // 加载默认页面
-            ContentFrame.Navigate(commandSetPage);
+            ContentFrame.Navigate(approvalModePage);
 
             isInitialized = true;
         }
@@ -31,6 +33,10 @@ namespace revit_mcp_plugin.UI
             if (NavListBox.SelectedItem == CommandSetItem)
             {
                 ContentFrame.Navigate(commandSetPage);
+            }
+            else if (NavListBox.SelectedItem == ApprovalModeItem)
+            {
+                ContentFrame.Navigate(approvalModePage);
             }
         }
     }
