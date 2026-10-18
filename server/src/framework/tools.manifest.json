@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capabilityHash": "cfdb7b09580d43411a415b31d2e8fb09beb2bb0676c182f048c33235948a5d89",
+  "capabilityHash": "e010b1cbad0cbb241fa439093cfcae6fc860a101bfc7a2b53d165ad40dee57f0",
   "tools": [
     {
       "name": "activate_view",
@@ -2882,7 +2882,7 @@
     },
     {
       "name": "create_family_from_template",
-      "description": "Create a loadable family from an installed .rft template (criar família / extrusão travada): a solid extrusion from a centered rectangle (width x depth) or a polygon, with height, width and depth length parameters (pt-BR names by default) and a material parameter. For the rectangle, reference planes are added, the faces are locked to them, labeled dimensions drive width/depth and EQ dimensions keep it centered; height drives the extrusion end. A flex test reports which parameters really move the geometry. Saves to the allowed folders and optionally loads it into the project. dryRun builds and flexes in memory without saving or loading. Undo the load with Ctrl+Z.",
+      "description": "Create a loadable family from an installed .rft template (criar família / extrusão travada / vazio de corte): a solid (or, with void:true, an unattached void for create_void_cut) extrusion from a centered rectangle (width x depth) or a polygon, with height, width and depth length parameters (pt-BR names by default) and a material parameter. For the rectangle, reference planes are added, the faces are locked to them, labeled dimensions drive width/depth and EQ dimensions keep it centered; height drives the extrusion end. A flex test reports which parameters really move the geometry. Saves to the allowed folders and optionally loads it into the project. dryRun builds and flexes in memory without saving or loading. Undo the load with Ctrl+Z.",
       "kind": "write",
       "risk": "medium",
       "toolset": "families",
@@ -2968,6 +2968,11 @@
             "description": "Name of a material parameter bound to the extrusion. Default \"Material\"; empty string = none.",
             "type": "string",
             "default": "Material"
+          },
+          "void": {
+            "description": "true: an unattached VOID extrusion instead of a solid, with 'Cut with voids when loaded' on: a cutting family (sink or cooktop cutout, opening) to use with create_void_cut. No material parameter. Default false.",
+            "type": "boolean",
+            "default": false
           },
           "instanceParameters": {
             "description": "Make the parameters instance parameters (default false: type parameters).",
